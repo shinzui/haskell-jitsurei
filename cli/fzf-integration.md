@@ -428,6 +428,101 @@ selectOptionalHabit cfg pool = do
 
 The candidate type becomes `Candidate (Maybe (HabitId, HabitView))` — `Nothing` for skip, `Just` for real entries.
 
+## 11. optparse-applicative Patterns for Optional FZF Values
+
+There are two patterns for wiring fzf into optparse-applicative parsers, depending on whether the entity type is already known from context or needs to be selected by the user.
+
+### Pattern A: Optional positional argument (`optional strArgument`)
+
+Use when the command already establishes what entity type is being operated on (e.g., `rei intention complete` is always about intentions). The entity ID is a positional argument — present means direct lookup, absent means fzf.
+
+```haskell
+-- Parser
+completeParser :: Parser CompleteData
+completeParser =
+  CompleteData
+    <$> optional (strArgument (metavar "ID" <> help "Intention ID (uses FZF if not provided)"))
+    <*> optional (strOption (long "at" <> metavar "TIME" <> help "Completion time"))
+
+-- Handler
+case mIdText of
+  Just idText -> parseAndLookup idText
+  Nothing     -> selectViaFzf fzfConf pool
+```
+
+Works because positional arguments are naturally optional — if no more positionals remain, `optional` succeeds with `Nothing`.
+
+### Pattern B: Optional flag argument (`optional strOption`)
+
+Use when one command can operate on different entity types and a flag selects which one (e.g., `rei intention set-focus --intention ID --focus FID`). Each flag is independently optional — absent means fzf picks that entity.
+
+```haskell
+-- Parser
+setFocusParser :: Parser SetFocusData
+setFocusParser =
+  SetFocusCmd
+    <$> optional (strOption (long "intention" <> short 'i' <> metavar "ID" <> help "Intention ID (uses FZF if not provided)"))
+    <*> optional (strOption (long "focus" <> metavar "FID" <> help "Focus ID (uses FZF if not provided)"))
+
+-- Handler: resolve each independently, fzf fills in the gaps
+mIntentionId <- resolveIntentionId fzfConf mPool mIntentionIdText
+mFocusId     <- resolveFocusId fzfConf mPool mFocusIdText
+```
+
+Works because `optional (strOption ...)` makes the entire `--flag VALUE` optional. Flag absent → `Nothing` → fzf. Flag present → `Just value` → direct lookup. The user never types the flag without a value — they either include it with a value or omit it entirely.
+
+### Pattern C: Flag as mode selector with optional value (`flag'` + `optional strArgument`)
+
+Use when a flag selects a *mode* and its value is optional. The flag's presence means "I want this mode" and the value (if given) means "and here's the specific item." This is the pattern for commands like `mori path` where the base behavior (project root) differs from the flagged behavior (package/doc path).
+
+optparse-applicative cannot express "flag with optional value" directly — `strOption` always requires a value, and `<|>` with duplicate long names does not backtrack. The solution: `flag'` consumes the bare flag, then `optional strArgument` consumes the next positional if present.
+
+```haskell
+-- Parser
+data PathTarget
+  = ProjectRoot
+  | PackagePath !(Maybe Text)
+  | DocPath !(Maybe Text)
+
+pathTargetParser :: Parser PathTarget
+pathTargetParser =
+  packageTarget <|> docTarget <|> pure ProjectRoot
+  where
+    packageTarget =
+      flag' () (long "package" <> short 'p' <> help "Print path to a package (interactive if name omitted)")
+        *> (PackagePath <$> optional (strArgument (metavar "PACKAGE" <> help "Package name")))
+    docTarget =
+      flag' () (long "doc" <> short 'd' <> help "Print location of a doc (interactive if key omitted)")
+        *> (DocPath <$> optional (strArgument (metavar "KEY" <> help "Doc key")))
+```
+
+This gives the desired UX:
+
+```
+myapp path project                     # ProjectRoot (no flag)
+myapp path project --package           # PackagePath Nothing → fzf picker
+myapp path project --package mori-core # PackagePath (Just "mori-core") → direct
+myapp path project --doc               # DocPath Nothing → fzf picker
+myapp path project --doc api-guide     # DocPath (Just "api-guide") → direct
+```
+
+The help text naturally shows the optional value:
+
+```
+Usage: myapp path PROJECT [(-p|--package) [PACKAGE] | (-d|--doc) [KEY]]
+```
+
+**Why not `strOption <|> flag'` with the same long name?** It compiles, but optparse-applicative's option matcher commits to `strOption` when it sees the flag, then fails expecting a value — it does not backtrack to the `flag'` branch. The `flag' *> optional strArgument` pattern avoids this entirely by separating the flag (mode selector) from the value (positional argument).
+
+### When to use which pattern
+
+| Situation | Pattern | Example |
+|-----------|---------|---------|
+| Command already scopes entity type, ID is the only variable | A: `optional strArgument` | `rei intention complete [ID]` |
+| Multiple entity flags on one command, each independently optional | B: `optional strOption` | `rei intention set-focus --intention ID --focus FID` |
+| Flag selects a mode, value within that mode is optional | C: `flag' *> optional strArgument` | `mori path PROJECT --package [NAME]` |
+
+
 ## Summary of Key Design Decisions
 
 | Decision | Rationale |
