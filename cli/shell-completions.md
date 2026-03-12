@@ -1,16 +1,14 @@
 # Shell Completion Generation
 
-A pattern for generating Bash, Zsh, and Fish completion scripts from a declarative command definition in Haskell. Uses a custom generator approach rather than optparse-applicative's built-in completion system, giving full control over the output.
+A pattern for generating Bash, Zsh, and Fish completion scripts that delegate to optparse-applicative's built-in completion protocol. Completions are derived automatically from the parser definitions — no manual command registry needed.
 
 ## Architecture
 
 ```
 Completions/
-├── Types.hs       -- CommandDef type, helpers
-├── Commands.hs    -- Single source of truth for all commands
-├── Bash.hs        -- Bash script generator
-├── Zsh.hs         -- Zsh script generator
-├── Fish.hs        -- Fish script generator
+├── Bash.hs        -- Bash script generator (plain protocol)
+├── Zsh.hs         -- Zsh script generator (enriched protocol)
+├── Fish.hs        -- Fish script generator (enriched protocol)
 ├── Handler.hs     -- Routes to the right generator
 ├── Parser.hs      -- optparse-applicative subparser
 └── Completions.hs -- Re-export module
@@ -24,75 +22,145 @@ myapp completions zsh  > ~/.zfunc/_myapp    # or eval "$(myapp completions zsh)"
 myapp completions fish > ~/.config/fish/completions/myapp.fish
 ```
 
-## 1. Command Definition (Single Source of Truth)
+## How It Works
 
-All CLI commands are declared in a single module as a tree of `CommandDef` values. This is the only place you need to update when adding commands.
+The generated scripts delegate completion to the binary itself at runtime. When the user presses Tab, the shell invokes `myapp --bash-completion-index N --bash-completion-word ...` with the current command line. optparse-applicative walks its parser tree and returns matching completions.
 
-```haskell
-data CommandDef = CommandDef
-  { cmdName      :: String        -- command name
-  , cmdDesc      :: String        -- one-line description (shown in shell help)
-  , cmdSubs      :: [CommandDef]  -- nested subcommands
-  , cmdNeedsFile :: Bool          -- enable file path completion
-  }
+This means **all commands, subcommands, and flags are completed automatically** from the parser definitions. Adding a new command to the parser is all that's needed — no separate command registry to maintain.
 
--- Helper: create a command without file completion
-cmd :: String -> String -> [CommandDef] -> CommandDef
-cmd name desc subs = CommandDef name desc subs False
-```
+### Plain vs Enriched Protocol
 
-### Command tree example
+optparse-applicative offers two completion protocols:
 
-```haskell
-allCommands :: [CommandDef]
-allCommands =
-  [ cmd "intention" "Manage intentions" intentionSubs
-  , cmd "habit"     "Manage habits"     habitSubs
-  , cmd "today"     "Show daily dashboard" []
-  , cmd "help"      "Show help topics"  []
-  , cmd "completions" "Generate shell completions" completionsSubs
-  ]
+| Protocol | Flag | Output format | Use case |
+|----------|------|---------------|----------|
+| Plain | `--bash-completion-index` | One word per line | Bash (no description support) |
+| Enriched | `--bash-completion-enriched` | `word\tdescription` per line | Zsh, Fish (show descriptions) |
 
-intentionSubs :: [CommandDef]
-intentionSubs =
-  [ cmd "create"   "Create a new intention"    []
-  , cmd "show"     "Show intention details"    []
-  , cmd "complete" "Mark intention complete"   []
-  , cmd "note"     "Manage notes for intention" intentionNoteSubs
-  ]
+## 1. Bash Generator
 
-intentionNoteSubs :: [CommandDef]
-intentionNoteSubs =
-  [ cmd "open" "Open a note" []
-  , cmd "list" "List notes"  []
-  ]
-
-completionsSubs :: [CommandDef]
-completionsSubs =
-  [ cmd "bash" "Generate Bash completions" []
-  , cmd "zsh"  "Generate Zsh completions"  []
-  , cmd "fish" "Generate Fish completions" []
-  ]
-```
-
-Supports 3 levels of nesting: `myapp command subcommand sub-subcommand`.
-
-## 2. File Completion
-
-Some commands accept file path arguments. These are declared separately:
+Bash does not support completion descriptions natively, so it uses the **plain protocol**.
 
 ```haskell
-fileArgCommands :: [(String, String)]
-fileArgCommands =
-  [ ("doc", "attach")  -- myapp doc attach <file>
-  ]
+generateBashCompletion :: Text
+generateBashCompletion =
+  T.unlines
+    [ "_myapp_completions() {",
+      "    local CMDLINE",
+      "    local IFS=$'\\n'",
+      "    CMDLINE=(--bash-completion-index $COMP_CWORD)",
+      "",
+      "    for arg in ${COMP_WORDS[@]}; do",
+      "        CMDLINE=(${CMDLINE[@]} --bash-completion-word \"$arg\")",
+      "    done",
+      "",
+      "    COMPREPLY=( $(myapp \"${CMDLINE[@]}\" 2>/dev/null) )",
+      "}",
+      "",
+      "complete -o filenames -F _myapp_completions myapp"
+    ]
 ```
 
-Each generator uses this list to emit shell-specific file completion logic (Bash: `_filedir`, Zsh: `_files`, Fish: `-F`).
+**How it works:**
+- Passes `$COMP_CWORD` (cursor position) and `$COMP_WORDS` (current tokens) to the binary
+- The binary returns matching completions, one per line
+- `complete -o filenames` enables fallback file completion when no matches are found
 
-## 3. Handler
+## 2. Zsh Generator
 
-The handler routes to the appropriate generator, passing the command tree:
+Zsh uses the **enriched protocol** to show descriptions alongside completions via `_describe`.
+
+```haskell
+generateZshCompletion :: Text
+generateZshCompletion =
+  T.unlines
+    [ "#compdef myapp",
+      "",
+      "_myapp() {",
+      "    local -a completions",
+      "    local CMDLINE",
+      "    local IFS=$'\\n'",
+      "",
+      "    CMDLINE=(--bash-completion-enriched --bash-completion-index $((CURRENT - 1)))",
+      "",
+      "    for arg in ${words[@]}; do",
+      "        CMDLINE=(${CMDLINE[@]} --bash-completion-word \"$arg\")",
+      "    done",
+      "",
+      "    local line",
+      "    for line in $(myapp \"${CMDLINE[@]}\" 2>/dev/null); do",
+      "        local word=${line%%$'\\t'*}",
+      "        local desc=${line#*$'\\t'}",
+      "        if [[ \"$word\" != \"$desc\" ]]; then",
+      "            completions+=(\"${word//:/\\\\:}:${desc}\")",
+      "        else",
+      "            completions+=(\"$word\")",
+      "        fi",
+      "    done",
+      "",
+      "    if [[ ${#completions[@]} -gt 0 ]]; then",
+      "        _describe 'myapp' completions",
+      "    fi",
+      "}",
+      "",
+      "_myapp"
+    ]
+```
+
+**How it works:**
+- Uses `--bash-completion-enriched` to get `word\tdescription` pairs
+- Parses tab-separated output: `${line%%$'\t'*}` extracts the word, `${line#*$'\t'}` extracts the description
+- Escapes colons in words (`${word//:/\\:}`) since Zsh uses `:` as the word/description separator
+- Falls back to plain words when no description is present (word equals desc after split)
+- Uses `_describe` to display completions with descriptions
+
+## 3. Fish Generator
+
+Fish also uses the **enriched protocol**, parsing tab-separated output into its native description format.
+
+```haskell
+generateFishCompletion :: Text
+generateFishCompletion =
+  T.unlines
+    [ "# Disable file completion by default",
+      "complete -c myapp -f",
+      "",
+      "function __myapp_complete",
+      "    set -l tokens (commandline -cop)",
+      "    set -l current (commandline -ct)",
+      "    set -l index (count $tokens)",
+      "",
+      "    set -l args --bash-completion-enriched --bash-completion-index $index",
+      "    for token in $tokens",
+      "        set args $args --bash-completion-word $token",
+      "    end",
+      "    set args $args --bash-completion-word \"$current\"",
+      "",
+      "    for line in (myapp $args 2>/dev/null)",
+      "        # Split on tab: word<TAB>description",
+      "        set -l parts (string split \\t -- $line)",
+      "        if test (count $parts) -ge 2",
+      "            printf '%s\\t%s\\n' $parts[1] $parts[2]",
+      "        else",
+      "            echo $line",
+      "        end",
+      "    end",
+      "end",
+      "",
+      "complete -c myapp -a '(__myapp_complete)'"
+    ]
+```
+
+**How it works:**
+- `complete -c myapp -f` disables default file completion
+- The `__myapp_complete` function builds the completion query from `commandline` state
+- Splits enriched output on tab to extract word and description
+- Outputs `word\tdescription` which Fish natively renders as completion with description
+- Falls back to plain output when no tab separator is found
+
+## 4. Handler
+
+The handler routes to the appropriate generator — each generator is a pure `Text` value:
 
 ```haskell
 data CompletionsCommand
@@ -102,236 +170,52 @@ data CompletionsCommand
 
 handleCompletionsCommand :: CompletionsCommand -> IO ()
 handleCompletionsCommand = \case
-  CompletionsBash -> TIO.putStrLn $ generateBashCompletion allCommands
-  CompletionsZsh  -> TIO.putStrLn $ generateZshCompletion allCommands
-  CompletionsFish -> TIO.putStrLn $ generateFishCompletion allCommands
+  CompletionsBash -> TIO.putStrLn generateBashCompletion
+  CompletionsZsh  -> TIO.putStrLn generateZshCompletion
+  CompletionsFish -> TIO.putStrLn generateFishCompletion
 ```
 
-## 4. Bash Generator
+Note that generators take no arguments — there is no command tree to pass in. The scripts delegate all completion logic to the binary at runtime.
 
-Generates a `_myapp_completions()` function using standard Bash completion builtins.
+## 5. Adding a New Command
 
-**Strategy:**
-- Store subcommand names in shell variables (`intention_cmds="create show complete note"`)
-- At `cword == 1`: complete with top-level commands via `compgen -W`
-- At `cword == 2`: `case` on the first word, complete with that command's subcommands
-- File commands: check parent + subcommand match, call `_filedir`
+Just add the command to your optparse-applicative parser. That's it — completions are derived automatically.
+
+Rebuild and regenerate:
+```bash
+cabal build
+myapp completions bash > ~/.local/share/bash-completion/completions/myapp
+```
+
+To get descriptions in Zsh and Fish, add `help` metadata to your parser options:
 
 ```haskell
-generateBashCompletion :: [CommandDef] -> Text
-generateBashCompletion cmds = T.unlines
-  [ "_myapp_completions() {"
-  , "    local cur prev words cword"
-  , "    _init_completion || return"
-  , ""
-  , "    local commands=\"" <> topLevelNames <> "\""
-  ,      subcommandVars          -- local intention_cmds="create show ..."
-  , ""
-  , "    if [[ $cword -eq 1 ]]; then"
-  , "        COMPREPLY=($(compgen -W \"$commands\" -- \"$cur\"))"
-  , "        return"
-  , "    fi"
-  , ""
-  ,      fileCompletionCheck     -- if doc attach at cword >= 3, _filedir
-  , ""
-  , "    case ${words[1]} in"
-  ,      subcommandCases         -- intention) compgen -W "$intention_cmds" ...
-  , "    esac"
-  , "}"
-  , ""
-  , "complete -F _myapp_completions myapp"
-  ]
+command "archive" (info archiveParser (progDesc "Archive an intention"))
 ```
 
-**Subcommand variable generation:**
+The `progDesc` text becomes the description shown in Zsh and Fish completions.
 
-```haskell
-generateBashSubcommandVars :: [CommandDef] -> Text
-generateBashSubcommandVars cmds = T.unlines
-  [ "    local " <> pack (cmdName c) <> "_cmds=\""
-      <> pack (unwords (map cmdName (cmdSubs c))) <> "\""
-  | c <- cmds
-  , not (null (cmdSubs c))
-  ]
-```
+## Why Use optparse-applicative's Built-In Protocol?
 
-**Case generation:**
+| Aspect | Custom generator (old) | Built-in protocol |
+|--------|----------------------|-------------------|
+| Maintenance | Manual `Commands.hs` must stay in sync with parsers | Automatic — derived from parsers |
+| New commands | Must update command registry | Just add to parser |
+| Flag completion | Not supported | Automatic |
+| Descriptions | Custom per-shell logic | Enriched protocol, parsed per-shell |
+| Runtime dependency | Static script, no callbacks | Calls binary for each completion |
+| Nesting depth | Explicit (typically 3 levels) | Unlimited — follows parser tree |
 
-```haskell
-generateBashCases :: [CommandDef] -> Text
-generateBashCases cmds = T.unlines
-  [ T.unlines
-      [ "        " <> pack (cmdName c) <> ")"
-      , "            if [[ $cword -eq 2 ]]; then"
-      , "                COMPREPLY=($(compgen -W \"$" <> pack (cmdName c) <> "_cmds\" -- \"$cur\"))"
-      , "            fi"
-      , "            ;;"
-      ]
-  | c <- cmds
-  , not (null (cmdSubs c))
-  ]
-```
-
-## 5. Zsh Generator
-
-Generates a `_myapp()` function with `#compdef` tag. Zsh completions show descriptions alongside command names via `_describe`.
-
-**Strategy:**
-- Declare arrays for each command level (`local -a intention_cmds`)
-- Fill arrays with `'name:description'` pairs
-- At `CURRENT == 2`: `_describe` top-level commands
-- At `CURRENT == 3`: `case` on `$words[2]`, `_describe` subcommands
-- At `CURRENT == 4`: nested `case` for 3rd-level subcommands
-- At `CURRENT >= 5`: file completion check
-
-```haskell
-generateZshCompletion :: [CommandDef] -> Text
-generateZshCompletion cmds = T.unlines
-  [ "#compdef myapp"
-  , ""
-  , "_myapp() {"
-  , "    local -a commands"
-  ,      arrayDecls               -- local -a intention_cmds
-  ,      nestedArrayDecls         -- local -a intention_note_cmds
-  , ""
-  , "    commands=("
-  ,      commandList              -- 'intention:Manage intentions'
-  , "    )"
-  ,      subcommandArrays        -- intention_cmds=('create:...' 'show:...')
-  ,      nestedArrays            -- intention_note_cmds=('open:...' 'list:...')
-  , ""
-  , "    if (( CURRENT == 2 )); then"
-  , "        _describe -t commands 'myapp commands' commands"
-  , "    elif (( CURRENT == 3 )); then"
-  , "        case $words[2] in"
-  ,          cases                -- intention) _describe ... intention_cmds ;;
-  , "        esac"
-  , "    elif (( CURRENT == 4 )); then"
-  ,          nestedCases          -- intention) case $words[3] in note) ... esac ;;
-  , "    elif (( CURRENT >= 5 )); then"
-  ,          fileCheck            -- doc) case $words[3] in attach) _files ;; ...
-  , "    fi"
-  , "}"
-  , ""
-  , "_myapp"
-  ]
-```
-
-**Zsh variable naming:** hyphens in command names are converted to underscores for valid shell identifiers:
-
-```haskell
-toZshVarName :: String -> Text
-toZshVarName = pack . map (\c -> if c == '-' then '_' else c)
--- "custom-property" → "custom_property"
-```
-
-**Command list with descriptions:**
-
-```haskell
-generateZshCommandList :: [CommandDef] -> Int -> Text
-generateZshCommandList cmds indent = T.intercalate "\n"
-  [ T.replicate indent " " <> "'" <> pack (cmdName c) <> ":" <> pack (cmdDesc c) <> "'"
-  | c <- cmds
-  ]
-```
-
-## 6. Fish Generator
-
-Fish uses a declarative `complete` command syntax — no function needed.
-
-**Strategy:**
-- `complete -c myapp -f` disables file completion by default
-- Top-level: condition `__fish_use_subcommand`
-- Subcommands: condition `__fish_seen_subcommand_from parent`
-- File commands: add `-F` flag for specific parent+sub combinations
-
-```haskell
-generateFishCompletion :: [CommandDef] -> Text
-generateFishCompletion cmds = T.unlines $
-  [ "# Disable file completion by default"
-  , "complete -c myapp -f"
-  , ""
-  , "# Main commands"
-  ]
-  ++ [generateFishMainCommand c | c <- cmds]
-  ++ [""]
-  ++ concatMap generateFishSubcommands cmds
-  ++ generateFishFileCompletions
-```
-
-**Main commands:**
-
-```haskell
-generateFishMainCommand :: CommandDef -> Text
-generateFishMainCommand c =
-  "complete -c myapp -n \"__fish_use_subcommand\" -a "
-    <> pack (cmdName c) <> " -d \"" <> pack (cmdDesc c) <> "\""
-```
-
-**Subcommands:**
-
-```haskell
-generateFishSubcommands :: CommandDef -> [Text]
-generateFishSubcommands c
-  | null (cmdSubs c) = []
-  | otherwise =
-      ["# " <> T.toTitle (pack (cmdName c)) <> " subcommands"]
-        ++ [ "complete -c myapp -n \"__fish_seen_subcommand_from "
-               <> pack (cmdName c) <> "\" -a "
-               <> pack (cmdName s) <> " -d \"" <> pack (cmdDesc s) <> "\""
-           | s <- cmdSubs c
-           ]
-        ++ [""]
-```
-
-## 7. Adding a New Command
-
-1. Add the entry to the appropriate list in `Commands.hs`:
-   ```haskell
-   intentionSubs =
-     [ ...existing...
-     , cmd "archive" "Archive an intention" []   -- new
-     ]
-   ```
-
-2. If it accepts file arguments, add to `fileArgCommands` in `Types.hs`:
-   ```haskell
-   fileArgCommands =
-     [ ("doc", "attach")
-     , ("doc", "import")   -- new
-     ]
-   ```
-
-3. Rebuild and regenerate:
-   ```bash
-   cabal build
-   myapp completions bash > ~/.local/share/bash-completion/completions/myapp
-   ```
-
-No changes needed in the generator modules — they operate on the `[CommandDef]` tree.
-
-## Why Not optparse-applicative's Built-In Completions?
-
-optparse-applicative has a `--bash-completion-script` mechanism, but the custom approach offers:
-
-| Aspect | Built-in | Custom generator |
-|--------|----------|-----------------|
-| Descriptions in Zsh/Fish | No | Yes (via `_describe` / `-d`) |
-| File completion control | Limited | Per-command granularity |
-| Output format control | Fixed | Full control per shell |
-| Runtime dependency | Calls binary for each completion | Static script, no callbacks |
-| Nesting depth | Automatic | Explicit (currently 3 levels) |
-| Maintenance | Automatic from parsers | Manual `Commands.hs` updates |
-
-The tradeoff is maintaining `Commands.hs` in sync with the actual parsers. In practice this is manageable — new commands are rare relative to other changes, and a missing completion is a minor inconvenience, not a bug.
+The tradeoff is that completions require the binary to be available at runtime (the shell calls it on each Tab press). In practice this is negligible — the binary is fast and the protocol is simple.
 
 ## Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| Static scripts (no binary callbacks) | Faster completions, works offline, no process spawn per keystroke |
-| Single `Commands.hs` source of truth | One place to update, all three shells stay in sync |
-| `cmdDesc` on every command | Zsh and Fish display descriptions; Bash ignores them |
-| `fileArgCommands` as separate list | File completion is opt-in; most commands don't need it |
-| Hyphens → underscores in Zsh vars | Zsh variable names can't contain hyphens |
-| `complete -c myapp -f` in Fish | Disable default file completion; re-enable selectively with `-F` |
+| Delegate to binary via `--bash-completion-index` | Zero maintenance — completions always match the actual parser |
+| Plain protocol for Bash | Bash has no native description display; enriched output would be ignored |
+| Enriched protocol for Zsh and Fish | Both shells display descriptions natively (`_describe` / tab format) |
+| Parse `word\tdescription` in shell scripts | Keeps Haskell generators simple — each is a static `Text` constant |
+| `complete -o filenames` for Bash | Enables file path fallback when the binary returns no matches |
+| `complete -c myapp -f` for Fish | Disables default file completion; the binary controls what's offered |
+| Escape colons in Zsh words | Zsh uses `:` as the word/description separator in `_describe` |
