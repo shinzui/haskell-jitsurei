@@ -1,6 +1,6 @@
 let Schema =
-      https://raw.githubusercontent.com/shinzui/mori-schema/4412469f2960b8faa48c123451bf90c0d3400db3/package.dhall
-        sha256:2e416c2d8c28c0b3b217cab47cc6d9e8bb9bec34b87d476edbb0d6d0863d1401
+      https://raw.githubusercontent.com/shinzui/mori-schema/85a34b7f21a33405a76d29a149a8883c168d3777/package.dhall
+        sha256:968eb05bdde9e4a7695c71d44fc4224d56bd512826e9cc8d849f367d42e04b86
 
 in  { project =
       { name = "haskell-jitsurei"
@@ -27,6 +27,8 @@ in  { project =
     , dependencies = [] : List Text
     , apis = [] : List Schema.Api
     , agents = [] : List Schema.AgentHint
+    , skills = [] : List Schema.Skill
+    , subagents = [] : List Schema.Subagent
     , standards = [] : List Text
     , docs =
       [ { key = "cli-help-topics"
@@ -58,6 +60,14 @@ in  { project =
             "Stdin integration pattern for accepting piped input and argument fallback chains"
         , location =
             Schema.DocLocation.LocalFile "cli/stdin-integration.md"
+        }
+      , { key = "cli-shell-completions"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Shell completion generation pattern for Bash, Zsh, and Fish"
+        , location =
+            Schema.DocLocation.LocalFile "cli/shell-completions.md"
         }
       ]
     }
