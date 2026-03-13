@@ -69,5 +69,13 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/shell-completions.md"
         }
+      , { key = "core-record-patterns"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Record definition and manipulation patterns using Generic Lens with #label syntax"
+        , location =
+            Schema.DocLocation.LocalFile "core/record-patterns.md"
+        }
       ]
     }
