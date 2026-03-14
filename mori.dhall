@@ -69,6 +69,14 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/shell-completions.md"
         }
+      , { key = "cli-option-groups"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Option groups pattern for organized --help output with parserOptionGroup"
+        , location =
+            Schema.DocLocation.LocalFile "cli/option-groups.md"
+        }
       , { key = "core-record-patterns"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
