@@ -77,6 +77,14 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/option-groups.md"
         }
+      , { key = "cli-command-aliases"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Command aliases pattern via config file pre-parse expansion"
+        , location =
+            Schema.DocLocation.LocalFile "cli/command-aliases.md"
+        }
       , { key = "core-record-patterns"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
