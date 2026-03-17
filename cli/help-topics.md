@@ -150,6 +150,68 @@ Use 2-space indentation for content under each section.
 
 No `.cabal` changes needed; `file-embed` reads the file directly from disk during compilation.
 
+## FZF interactive selection with preview
+
+When the topic list grows large, replace the plain listing with an FZF fuzzy finder that previews guide content as the user navigates.
+
+### Dependencies
+
+- The FZF integration module (e.g. `Cli.Fzf`) providing `runFzf`, `Candidate`, `FzfResult`, `detectFzfConfig`, `isFzfAvailable`, and option builders
+
+### Pattern
+
+Change `ListTopics` to detect FZF availability and either launch the picker or fall back to the plain list:
+
+```haskell
+import Cli.Fzf (Candidate (..), FzfResult (..), detectFzfConfig, isFzfAvailable,
+                 runFzf, withHeader, withPreview, withPrompt)
+
+handleHelpCommand :: HelpCommand -> IO ()
+handleHelpCommand = \case
+  ListTopics     -> selectOrListTopics
+  ShowTopic name -> showTopic name
+
+selectOrListTopics :: IO ()
+selectOrListTopics = do
+  cfg <- detectFzfConfig
+  if isFzfAvailable cfg
+    then selectTopicWithFzf cfg
+    else listTopics
+  where
+    selectTopicWithFzf cfg = do
+      let candidates = map formatTopicCandidate helpTopics
+          opts =
+            withPrompt "Help topic> "
+              <> withHeader "Select a guide (type to filter)"
+              <> withPreview "myapp help {2}"
+      result <- runFzf cfg opts candidates
+      case result of
+        FzfSelected topic -> TIO.putStrLn (topicContent topic)
+        FzfNoMatch        -> TIO.putStrLn "No matching topics."
+        FzfCancelled      -> pure ()
+        FzfError _        -> listTopics  -- graceful fallback
+
+    formatTopicCandidate topic =
+      Candidate
+        { candidateDisplay = padRight 30 (topicName topic) <> topicDescription topic
+        , candidateValue   = topic
+        }
+
+    padRight n t = t <> T.replicate (max 0 (n - T.length t)) " "
+```
+
+### How the preview works
+
+The preview command `myapp help {2}` invokes the CLI itself to render the selected topic. FZF's default AWK-style field splitting makes `{2}` resolve to just the topic name (the first word after the hidden index column), so `myapp help time` runs in the preview pane.
+
+This is self-referential: the binary already knows how to render any topic via `ShowTopic`, so no temp files or shell tricks are needed.
+
+### Key details
+
+- **Fallback on error** — `FzfError` falls back to the plain listing so the command never fails
+- **Padding** — `padRight` aligns descriptions into a readable column
+- **`{2}` field extraction** — The FZF index-based approach prefixes each line with `0\tDisplay text`. With AWK-style splitting, field 1 is the index, field 2 is the topic name (first word), and the rest is the description
+
 ## Build caveat
 
 Cabal does not track embedded files as dependencies. If you edit a `.md` file without touching the `.hs` file, Cabal may skip recompilation. Force it with:
