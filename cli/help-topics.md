@@ -212,6 +212,40 @@ This is self-referential: the binary already knows how to render any topic via `
 - **Padding** — `padRight` aligns descriptions into a readable column
 - **`{2}` field extraction** — The FZF index-based approach prefixes each line with `0\tDisplay text`. With AWK-style splitting, field 1 is the index, field 2 is the topic name (first word), and the rest is the description
 
+### Bypassing FZF with `--list`
+
+When FZF is the default for bare `help`, add a `--list` flag so users can still get the plain topic listing:
+
+```haskell
+data HelpCommand
+  = ListTopics
+  | SelectTopics
+  | ShowTopic !Text
+
+helpCommandParser :: Parser HelpCommand
+helpCommandParser =
+  listFlag <|> showTopicParser <|> pure SelectTopics
+  where
+    listFlag =
+      flag' ListTopics
+        ( long "list"
+            <> short 'l'
+            <> help "List all topics without interactive selection"
+        )
+```
+
+Then split the handler so `ListTopics` always prints the plain list and `SelectTopics` goes through the FZF-or-fallback path:
+
+```haskell
+handleHelpCommand :: HelpCommand -> IO ()
+handleHelpCommand = \case
+  ListTopics     -> listTopics
+  SelectTopics   -> selectOrListTopics
+  ShowTopic name -> showTopic name
+```
+
+This way `myapp help` launches FZF when available, but `myapp help --list` always prints the full topic index — useful in scripts or when piping output.
+
 ## Build caveat
 
 Cabal does not track embedded files as dependencies. If you edit a `.md` file without touching the `.hs` file, Cabal may skip recompilation. Force it with:
