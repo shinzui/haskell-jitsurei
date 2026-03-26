@@ -1,6 +1,6 @@
 let Schema =
-      https://raw.githubusercontent.com/shinzui/mori-schema/58523ea11e120f3be1c978e509d67f51311a8280/package.dhall
-        sha256:e4acbb565c9f4e4b3831dabf084e50f8687dda780b7874ced90ae88d6f349f4f
+      https://raw.githubusercontent.com/shinzui/mori-schema/229cb855bca7918e1f0fbed75be4e073eff943b4/package.dhall
+        sha256:d19ae156d6c357d982a1aea0f1b6ba1f01d76d2d848545b150db75ed4c39a8a9
 
 in  { project =
       { name = "haskell-jitsurei"
@@ -84,6 +84,14 @@ in  { project =
             "Command aliases pattern via config file pre-parse expansion"
         , location =
             Schema.DocLocation.LocalFile "cli/command-aliases.md"
+        }
+      , { key = "cli-agent-assist-commands"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Agent assist commands pattern for providing live project context to AI coding assistants"
+        , location =
+            Schema.DocLocation.LocalFile "cli/agents/agent-assist-commands.md"
         }
       , { key = "core-record-patterns"
         , kind = Schema.DocKind.Cookbook
