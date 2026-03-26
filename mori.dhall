@@ -101,5 +101,13 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "core/record-patterns.md"
         }
+      , { key = "core-custom-prelude"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Custom prelude pattern for centralizing common re-exports and project-wide utilities"
+        , location =
+            Schema.DocLocation.LocalFile "core/custom-prelude.md"
+        }
       ]
     }
