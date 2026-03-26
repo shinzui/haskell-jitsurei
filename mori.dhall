@@ -109,5 +109,13 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "core/custom-prelude.md"
         }
+      , { key = "core-multiline-strings"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Multiline string literals with automatic indentation stripping using GHC 9.12 MultilineStrings extension"
+        , location =
+            Schema.DocLocation.LocalFile "core/multiline-strings.md"
+        }
       ]
     }
