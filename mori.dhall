@@ -117,5 +117,13 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "core/multiline-strings.md"
         }
+      , { key = "cli-skill-and-agent-registry"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Distributable skill and agent registry pattern for installing AI skills and subagents from a GitHub repository"
+        , location =
+            Schema.DocLocation.LocalFile "cli/agents/skill-and-agent-registry.md"
+        }
       ]
     }
