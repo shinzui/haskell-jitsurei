@@ -125,5 +125,13 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/agents/skill-and-agent-registry.md"
         }
+      , { key = "cli-hierarchical-config"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Hierarchical config pattern with layered Dhall files, precedence-based discovery, and per-layer validation"
+        , location =
+            Schema.DocLocation.LocalFile "cli/hierarchical-config.md"
+        }
       ]
     }
