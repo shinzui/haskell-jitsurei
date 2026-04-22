@@ -1,9 +1,9 @@
 let Schema =
-      https://raw.githubusercontent.com/shinzui/mori-schema/229cb855bca7918e1f0fbed75be4e073eff943b4/package.dhall
-        sha256:d19ae156d6c357d982a1aea0f1b6ba1f01d76d2d848545b150db75ed4c39a8a9
+      https://raw.githubusercontent.com/shinzui/mori-schema/9b1d6eea8027ae57576cf0712c0b9167fccbc1a9/package.dhall
+        sha256:a19f5dd9181db28ba7a6a1b77b5ab8715e81aba3e2a8f296f40973003a0b4412
 
-in  { project =
-      { name = "haskell-jitsurei"
+in  Schema.Project::{ project =
+      Schema.ProjectIdentity::{ name = "haskell-jitsurei"
       , namespace = "shinzui"
       , type = Schema.PackageType.Other "Documentation"
       , description = Some
@@ -12,40 +12,29 @@ in  { project =
       , lifecycle = Schema.Lifecycle.Active
       , domains = [ "haskell", "patterns", "documentation" ]
       , owners = [ "shinzui" ]
-      , origin = Schema.Origin.Own
       }
     , repos =
-      [ { name = "haskell-jitsurei"
+      [ Schema.Repo::{ name = "haskell-jitsurei"
         , github = Some "shinzui/haskell-jitsurei"
-        , gitlab = None Text
-        , git = None Text
         , localPath = Some "."
         }
       ]
-    , packages = [] : List Schema.Package
-    , bundles = [] : List Schema.PackageBundle
-    , dependencies = [] : List Text
-    , apis = [] : List Schema.Api
-    , agents = [] : List Schema.AgentHint
-    , skills = [] : List Schema.Skill
-    , subagents = [] : List Schema.Subagent
-    , standards = [] : List Text
     , docs =
-      [ { key = "cli-help-topics"
+      [ Schema.DocRef::{ key = "cli-help-topics"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
             "CLI help topics pattern with file-embed"
         , location = Schema.DocLocation.LocalFile "cli/help-topics.md"
         }
-      , { key = "cli-fzf-integration"
+      , Schema.DocRef::{ key = "cli-fzf-integration"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
             "FZF integration pattern for interactive CLI selection"
         , location = Schema.DocLocation.LocalFile "cli/fzf-integration.md"
         }
-      , { key = "cli-version-git-sha"
+      , Schema.DocRef::{ key = "cli-version-git-sha"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
@@ -53,7 +42,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/version-with-git-sha.md"
         }
-      , { key = "cli-stdin-integration"
+      , Schema.DocRef::{ key = "cli-stdin-integration"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
@@ -61,7 +50,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/stdin-integration.md"
         }
-      , { key = "cli-shell-completions"
+      , Schema.DocRef::{ key = "cli-shell-completions"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
@@ -69,7 +58,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/shell-completions.md"
         }
-      , { key = "cli-option-groups"
+      , Schema.DocRef::{ key = "cli-option-groups"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
@@ -77,7 +66,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/option-groups.md"
         }
-      , { key = "cli-command-aliases"
+      , Schema.DocRef::{ key = "cli-command-aliases"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
@@ -85,7 +74,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/command-aliases.md"
         }
-      , { key = "cli-agent-assist-commands"
+      , Schema.DocRef::{ key = "cli-agent-assist-commands"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
@@ -93,7 +82,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/agents/agent-assist-commands.md"
         }
-      , { key = "core-record-patterns"
+      , Schema.DocRef::{ key = "core-record-patterns"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
         , description = Some
@@ -101,7 +90,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "core/record-patterns.md"
         }
-      , { key = "core-custom-prelude"
+      , Schema.DocRef::{ key = "core-custom-prelude"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
         , description = Some
@@ -109,7 +98,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "core/custom-prelude.md"
         }
-      , { key = "core-multiline-strings"
+      , Schema.DocRef::{ key = "core-multiline-strings"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
         , description = Some
@@ -117,7 +106,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "core/multiline-strings.md"
         }
-      , { key = "cli-skill-and-agent-registry"
+      , Schema.DocRef::{ key = "cli-skill-and-agent-registry"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
@@ -125,7 +114,7 @@ in  { project =
         , location =
             Schema.DocLocation.LocalFile "cli/agents/skill-and-agent-registry.md"
         }
-      , { key = "cli-hierarchical-config"
+      , Schema.DocRef::{ key = "cli-hierarchical-config"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
