@@ -122,5 +122,13 @@ in  Schema.Project::{ project =
         , location =
             Schema.DocLocation.LocalFile "cli/hierarchical-config.md"
         }
+      , Schema.DocRef::{ key = "cli-copy-to-clipboard"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Opt-in --copy flag pattern for copying a command's primary output to the system clipboard via pbcopy/xclip"
+        , location =
+            Schema.DocLocation.LocalFile "cli/copy-to-clipboard.md"
+        }
       ]
     }
