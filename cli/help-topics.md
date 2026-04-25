@@ -257,3 +257,7 @@ cabal build
 ```
 
 Or delete the relevant build artifact and rebuild.
+
+## See also
+
+- [help-width.md](./help-width.md) — make `help <topic>` output adapt to the terminal width: a `--width N` flag, ioctl-based auto-detect with a sensible cap, byte-stable verbatim output when piped, and the indent-aware paragraph wrap algorithm. Includes a writeup of the `ansi-terminal getTerminalSize` trap.

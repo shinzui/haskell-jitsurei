@@ -130,5 +130,13 @@ in  Schema.Project::{ project =
         , location =
             Schema.DocLocation.LocalFile "cli/copy-to-clipboard.md"
         }
+      , Schema.DocRef::{ key = "cli-help-width"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Terminal-aware --width flag for help-topic output: ioctl-based auto-detect with a readability cap, byte-stable verbatim output when piped, indent-aware paragraph wrap, and parser-shape pitfalls that break the FZF picker path"
+        , location =
+            Schema.DocLocation.LocalFile "cli/help-width.md"
+        }
       ]
     }
