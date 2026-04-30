@@ -74,6 +74,14 @@ in  Schema.Project::{ project =
         , location =
             Schema.DocLocation.LocalFile "cli/command-aliases.md"
         }
+      , Schema.DocRef::{ key = "cli-command-aliases-kdl"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Command aliases pattern using a KDL config block decoded with KDL.remainingNodesWith"
+        , location =
+            Schema.DocLocation.LocalFile "cli/command-aliases-kdl.md"
+        }
       , Schema.DocRef::{ key = "cli-agent-assist-commands"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
