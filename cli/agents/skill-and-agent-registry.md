@@ -75,16 +75,18 @@ A JSON file at the repo root that enumerates all available content:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "skills": [
     {
       "name": "automation-config",
+      "version": "0.1.0",
       "description": "Author, validate, and debug mori automation configurations",
       "path": "skills/automation-config",
       "files": ["SKILL.md"]
     },
     {
       "name": "mori-config",
+      "version": "0.1.0",
       "description": "Author, validate, and edit mori.dhall project configurations",
       "path": "skills/mori-config",
       "files": ["SKILL.md"]
@@ -93,6 +95,7 @@ A JSON file at the repo root that enumerates all available content:
   "agents": [
     {
       "name": "automation-author",
+      "version": "0.1.0",
       "description": "Specialized agent for writing and debugging automation configs",
       "path": "agents/automation-author.md"
     }
@@ -104,12 +107,13 @@ A JSON file at the repo root that enumerates all available content:
 
 | Field | Purpose |
 |-------|---------|
-| `version` | Manifest schema version, for forward compatibility |
+| `version` (top-level) | Manifest schema version. `1` = no per-entry versions; `2` = entries carry a `version` field. Bumping signals a breaking schema change so the CLI can detect incompatible manifests and degrade gracefully. |
+| `skills[].version`, `agents[].version` | Author-managed semver string for *each item*. Bumped by the kit author on every content change. Parsed as `Maybe Text` so v1 manifests (and untagged entries) still load. See [Versioning Strategy](#versioning-strategy). |
 | `skills[].path` | Relative path to the skill directory in the repo |
 | `skills[].files` | Explicit file list — avoids hidden-file surprises, supports multi-file skills |
 | `agents[].path` | Relative path to the single agent markdown file |
 
-The manifest is the source of truth for `kit list`. It is parsed via `FromJSON` with no custom instances — field names match JSON keys exactly.
+The manifest is the source of truth for `kit list`. It is parsed via `FromJSON` with no custom instances — field names match JSON keys exactly. Per-entry `version` must be declared `Maybe Text` so legacy v1 manifests still parse cleanly.
 
 ### 3. Skill Format (Claude Code)
 
@@ -118,6 +122,7 @@ Each skill is a directory containing at minimum a `SKILL.md` with YAML frontmatt
 ```yaml
 ---
 name: automation-config
+version: "0.1.0"
 description: >
   Help author, validate, and debug mori automation configurations.
   TRIGGER when: user wants to create or edit automation rules.
@@ -141,6 +146,7 @@ Key frontmatter fields:
 | Field | Required | Purpose |
 |-------|----------|---------|
 | `name` | yes | Becomes the `/name` slash command |
+| `version` | yes (v2+) | Semver string. Must match the entry's `version` in `kit.json` so authors only have one place to inspect to know what's published. Bumped on every content change. |
 | `description` | yes | Shown in skill listings, used by Claude for auto-triggering |
 | `user-invocable` | yes | Set `true` for slash-command skills |
 | `argument-hint` | no | Tab-completion hint for arguments |
@@ -188,8 +194,14 @@ mycli kit update                        # Pull latest, re-install all
 mycli kit update <name>                 # Pull latest, re-install one
 mycli kit uninstall <name>              # Remove from user scope
 mycli kit uninstall <name> --project    # Remove from project scope
-mycli kit status                        # Show installed items with scope
+mycli kit status                        # NAME / TYPE / SCOPE / INSTALLED / LATEST / STATE
 ```
+
+`kit status` is the user-visible payoff of versioning. For every (item, scope)
+pair it prints one row classified as `up-to-date`, `outdated` (versions
+differ), `dirty` (versions match but upstream content drifted since install),
+or `unknown` (no per-install sidecar, no upstream entry, or no usable cache).
+See [Versioning Strategy](#versioning-strategy) for the full state machine.
 
 **No database required.** The kit command is purely filesystem + git operations, which means it works without any connection string or database setup. This lowers the barrier for new users.
 
@@ -253,7 +265,7 @@ data KitScope = UserScope | ProjectScope
 
 -- Manifest (parsed from kit.json)
 data KitManifest = KitManifest
-  { version :: !Int
+  { version :: !Int          -- 1 = no per-entry versions; 2 = entries carry `version`
   , skills :: ![SkillEntry]
   , agents :: ![AgentEntry]
   }
@@ -263,6 +275,7 @@ data KitManifest = KitManifest
 data SkillEntry = SkillEntry
   { name :: !Text
   , description :: !Text
+  , version :: !(Maybe Text) -- semver bumped by the author on every content change
   , path :: !Text          -- relative path in repo (e.g., "skills/foo")
   , files :: ![Text]       -- files to copy (e.g., ["SKILL.md"])
   }
@@ -272,11 +285,39 @@ data SkillEntry = SkillEntry
 data AgentEntry = AgentEntry
   { name :: !Text
   , description :: !Text
+  , version :: !(Maybe Text)
   , path :: !Text          -- relative path to the .md file
   }
   deriving stock (Generic, Show)
   deriving anyclass (FromJSON)
+
+-- Per-install metadata file (.kit.json sidecar) written next to each
+-- installed item. Recovered at status time to compare the install-time
+-- snapshot against current upstream.
+data SidecarMeta = SidecarMeta
+  { name :: !Text
+  , kind :: !Text          -- "skill" | "agent"
+  , version :: !(Maybe Text) -- the upstream version at install time (may be null)
+  , hash :: !Text          -- "sha256:<hex>" of upstream files at install time
+  , installedAt :: !Text   -- ISO-8601 UTC, second precision
+  }
+  deriving stock (Eq, Generic, Show)
+  deriving anyclass (FromJSON, ToJSON)
+
+-- The status state a (item, scope) pair classifies into.
+data KitState
+  = KitUpToDate            -- versions and content hash both match
+  | KitOutdated            -- upstream version differs from sidecar
+  | KitDirty               -- versions match but upstream content drifted
+  | KitUnknown             -- no sidecar, no upstream entry, or no cache
+  deriving stock (Eq, Show)
 ```
+
+> **Note on field naming.** `SidecarMeta`, `SkillEntry`, and `AgentEntry` all
+> share field names like `name` and `version`. Enable `DuplicateRecordFields`
+> and define small accessor wrappers (e.g. `skillVersionOf :: SkillEntry ->
+> Maybe Text`) so call sites stay unambiguous without forcing
+> `OverloadedRecordDot` everywhere.
 
 ### Key Functions
 
@@ -318,20 +359,114 @@ resolveTargetDir ProjectScope = do
   cwd <- getCurrentDirectory
   pure (cwd </> ".<project>" </> "agents")
 
--- Install: copy files from cache to target
+-- Install: copy files from cache to target, then write the sidecar
 doInstall :: FilePath -> KitItem -> KitScope -> IO ()
-doInstall repoDir (KitSkillItem entry) scope = do
+doInstall repoDir item@(KitSkillItem entry) scope = do
   targetBase <- resolveTargetDir scope
   let targetDir = targetBase </> ".claude" </> "skills" </> T.unpack (name entry)
+      sourceDir = repoDir </> T.unpack (path entry)
   createDirectoryIfMissing True targetDir
   mapM_ (copySkillFile repoDir entry targetDir) (files entry)
-doInstall repoDir (KitAgentItem entry) scope = do
+  -- Hash the upstream files at install time and write the sidecar
+  hashStr <- computeKitHash sourceDir (files entry)
+  writeSidecar item targetBase hashStr
+doInstall repoDir item@(KitAgentItem entry) scope = do
   targetBase <- resolveTargetDir scope
   let agentDir = targetBase </> ".claude" </> "agents"
+      srcRel = T.unpack (path entry)
+      sourceDir = repoDir </> takeDirectory srcRel
+      onlyFile = T.pack (takeFileName srcRel)
   createDirectoryIfMissing True agentDir
-  copyFile (repoDir </> T.unpack (path entry))
-           (agentDir </> takeFileName (T.unpack (path entry)))
+  copyFile (repoDir </> srcRel) (agentDir </> takeFileName srcRel)
+  hashStr <- computeKitHash sourceDir [onlyFile]
+  writeSidecar item targetBase hashStr
 ```
+
+> **Critical:** for agents, `computeKitHash` must be called with the
+> *directory* containing the file as the base and the *basename* as the
+> single relative path — not with the cache root and the full relative
+> path. The algorithm folds the relative-path bytes into the digest, so
+> `computeKitHash cacheDir ["agents/foo.md"]` and
+> `computeKitHash (cacheDir </> "agents") ["foo.md"]` yield different
+> hashes for identical content. The status-time hash code MUST use the
+> same split or every installed agent will be reported `dirty`. Pin both
+> sides with a fixture test.
+
+### Versioning + Outdated Detection
+
+```haskell
+-- Deterministic content hash. Sorts file paths lexicographically and
+-- length-prefixes each file's content so trivial reorderings or
+-- concatenations cannot collide. Output is "sha256:<hex>".
+computeKitHash :: FilePath -> [Text] -> IO Text
+computeKitHash baseDir relFiles = do
+  let sorted = sort relFiles
+  parts <- mapM (readOne baseDir) sorted
+  let digest = Hash.hash (BS.concat parts) :: Digest SHA256
+      hex    = TE.decodeUtf8 (convertToBase Base16 digest)
+  pure ("sha256:" <> hex)
+  where
+    readOne dir rel = do
+      content <- BS.readFile (dir </> T.unpack rel)
+      let pathBytes = TE.encodeUtf8 rel
+          lenBytes  = LBS.toStrict (runPut (putWord64be (fromIntegral (BS.length content))))
+      pure $ BS.concat [pathBytes, BS.singleton 0, lenBytes, content, BS.singleton 0]
+
+-- Where the sidecar lives for an installed item.
+sidecarPath :: KitItem -> FilePath -> FilePath
+sidecarPath (KitSkillItem e) base =
+  base </> ".claude" </> "skills" </> T.unpack (name e) </> ".kit.json"
+sidecarPath (KitAgentItem e) base =
+  base </> ".claude" </> "agents" </> T.unpack (name e) <> ".kit.json"
+
+writeSidecar :: KitItem -> FilePath -> Text -> IO ()
+readSidecar  :: FilePath -> IO (Maybe SidecarMeta)
+
+-- Pure classification. Precedence: unknown > outdated > dirty > up-to-date.
+--
+--   * No sidecar              => Unknown   (no anchor for comparison)
+--   * No upstream entry       => Unknown   (removed upstream)
+--   * Upstream version differs from sidecar version => Outdated
+--   * Upstream hash differs from sidecar hash       => Dirty
+--   * Otherwise               => UpToDate
+classify
+  :: Maybe SidecarMeta -> Maybe KitItem -> Maybe Text -> KitState
+classify Nothing _ _              = KitUnknown
+classify (Just _) Nothing _       = KitUnknown
+classify (Just sm) (Just it) mHash =
+  case itemVersion it of
+    Just latest
+      | sidecarMetaVersion sm /= Just latest -> KitOutdated
+    _ -> case mHash of
+           Just up | up /= sidecarMetaHash sm -> KitDirty
+           _ -> KitUpToDate
+
+-- Testable core. Production caller passes both scopes in one call:
+--
+--   rows <- collectStatus cacheDir [(userDir, "user"), (projectDir, "project")]
+--
+-- Each (item, scope) pair becomes one row, classified independently from
+-- its own sidecar at its own target base. Take a list of (base, label)
+-- pairs explicitly so tests can drive any combination of fake scopes
+-- through the same code path.
+collectStatus :: FilePath -> [(FilePath, Text)] -> IO [StatusRow]
+```
+
+A few load-bearing choices worth lifting out:
+
+- **Hash the upstream bytes at install time, not the destination bytes.**
+  Hashing the destination would tautologically equal the install-time
+  snapshot forever, defeating drift detection.
+- **One sidecar per (item, scope).** Treat user and project scopes as
+  fully independent peers — never read one scope's sidecar against the
+  other scope's row. Add a dual-scope fixture test that flips one scope
+  while asserting the other stays unchanged.
+- **Refresh the cache on `kit status`.** A status command that doesn't
+  pull would happily report `up-to-date` against a stale cache. Reuse
+  `ensureKitRepo` so the existing network-failure fallback (warn on
+  stderr, use cached data) carries over. When neither pull nor cache
+  yields a usable `kit.json`, return `""` as the cache directory and let
+  every row degrade to `LATEST = -`, `STATE = unknown`.
 
 ### Wiring Into the CLI
 
@@ -379,7 +514,7 @@ Claude Code automatically discovers `.claude/skills/` and `.claude/agents/` with
 
 ### Dependencies
 
-No new library dependencies. Uses only:
+The base command needs only what most CLIs already have:
 
 | Module | Purpose |
 |--------|---------|
@@ -387,6 +522,21 @@ No new library dependencies. Uses only:
 | `System.Directory` | Directory creation, existence checks, file copying |
 | `Data.Aeson` | Parsing `kit.json` (already a dependency) |
 | `Options.Applicative` | Command parsing (already a dependency) |
+
+Versioning adds three more, all already present in most Haskell CLI stacks:
+
+| Module | Purpose |
+|--------|---------|
+| `Crypto.Hash` (`crypton`) | SHA-256 digest for the content hash |
+| `Data.Binary.Put` (`binary`) | Big-endian length prefix in the hash framing |
+| `Data.ByteArray.Encoding` (`memory` / `ram`) | Hex-encode the digest output |
+
+On GHC 9.12+, both `binary` and the byte-array encoding package must be
+declared as direct dependencies even though they ship as boot libraries;
+the resolver will otherwise pick incompatible versions transitively. If
+`Crypto.Hash.hash` collides with the `hash` field of `SidecarMeta` (it
+does under `DuplicateRecordFields`), `import Crypto.Hash qualified as Hash`
+at the call site is the simplest fix.
 
 ## GitHub Setup
 
@@ -401,7 +551,7 @@ mkdir -p skills agents
 # 2. Create the manifest
 cat > kit.json << 'EOF'
 {
-  "version": 1,
+  "version": 2,
   "skills": [],
   "agents": []
 }
@@ -437,6 +587,7 @@ mkdir -p skills/my-new-skill
 cat > skills/my-new-skill/SKILL.md << 'EOF'
 ---
 name: my-new-skill
+version: "0.1.0"
 description: >
   What this skill does and when to trigger it.
 argument-hint: [optional args]
@@ -452,6 +603,7 @@ EOF
 # Add an entry to the "skills" array:
 #   {
 #     "name": "my-new-skill",
+#     "version": "0.1.0",
 #     "description": "What this skill does",
 #     "path": "skills/my-new-skill",
 #     "files": ["SKILL.md"]
@@ -459,11 +611,13 @@ EOF
 
 # 3. Commit and push
 git add skills/my-new-skill/SKILL.md kit.json
-git commit -m "Add my-new-skill skill"
+git commit -m "Add my-new-skill skill (v0.1.0)"
 git push
 ```
 
-Users get the new skill on their next `kit update`.
+Users get the new skill on their next `kit update`. On every later
+content change, bump the same `version` field in *both* `SKILL.md` and
+`kit.json` — see [Versioning Strategy](#versioning-strategy).
 
 ### Adding a New Subagent
 
@@ -474,6 +628,7 @@ cd <project>-kit
 cat > agents/my-agent.md << 'EOF'
 ---
 name: my-agent
+version: "0.1.0"
 description: Specialized agent for a specific task
 model: sonnet
 tools: [Bash, Read, Edit, Grep, Glob]
@@ -488,13 +643,14 @@ EOF
 # Add an entry to the "agents" array:
 #   {
 #     "name": "my-agent",
+#     "version": "0.1.0",
 #     "description": "Specialized agent for a specific task",
 #     "path": "agents/my-agent.md"
 #   }
 
 # 3. Commit and push
 git add agents/my-agent.md kit.json
-git commit -m "Add my-agent subagent"
+git commit -m "Add my-agent subagent (v0.1.0)"
 git push
 ```
 
@@ -505,22 +661,100 @@ git push
 
 ### Versioning Strategy
 
-The manifest has a `version` field for forward compatibility. The current convention:
+The kit uses **two complementary signals** to tell a user whether what
+they have installed is still what the kit publishes. Neither alone is
+sufficient.
 
-- **Version 1:** The format described in this document.
-- Bumping the version allows the CLI to detect incompatible manifests and print an upgrade message.
-- Content itself is unversioned — `kit update` always installs the latest from the default branch.
+| Signal | Lives in | Maintained by | Catches |
+|--------|----------|---------------|---------|
+| Author-managed semver | `kit.json` and each `SKILL.md` frontmatter | Skill author bumps on every content change | The author shipped an intentional new version |
+| Content hash | A per-install sidecar (`.kit.json`) written at install time | Computed automatically by `kit install` | Author edited content without bumping the version |
+
+`kit status` consumes both signals through a single pure function
+(`classify` in the implementation above) and reduces them to one of four
+tokens:
+
+| State | Meaning | What the user should do |
+|-------|---------|------------------------|
+| `up-to-date` | Installed version equals upstream version, and the upstream content hash matches the sidecar | Nothing |
+| `outdated` | Installed version differs from a known upstream version | Run `kit update <name>` |
+| `dirty` | Versions match (or upstream has no version yet) but the upstream content hash has changed | Re-install to refresh the snapshot |
+| `unknown` | No sidecar (legacy install), no upstream entry (removed upstream), or no usable cache | Re-install if it's a legacy install; otherwise investigate |
+
+**Precedence:** `unknown > outdated > dirty > up-to-date`. `unknown` always
+wins because no comparison can anchor; among rows where a comparison is
+possible, a deliberate version bump (`outdated`) is more actionable than
+a content-only drift (`dirty`).
+
+#### The two-version contract
+
+Both `kit.json` *and* each item's frontmatter (e.g. `SKILL.md`'s YAML
+header) carry the same `version` string. The CLI reads `kit.json`; humans
+read the frontmatter when browsing the source repo. Authors must bump
+*both* in the same commit; CI in the kit repo should fail a PR where
+the two disagree. Use semver:
+
+- Patch bump (`0.1.0 → 0.1.1`) for prose edits, typo fixes, clarification.
+- Minor bump (`0.1.0 → 0.2.0`) for new sections, new examples, behavioral changes that remain backwards-compatible from a user's perspective.
+- Major bump (`0.1.0 → 1.0.0`) for renames, removed sections, or workflow changes that meaningfully alter the user-facing surface.
+
+#### The sidecar
+
+`kit install` writes a `.kit.json` file next to each installed item.
+For a skill at `<base>/.claude/skills/<name>/`, the sidecar lives at
+`<base>/.claude/skills/<name>/.kit.json`. For an agent at
+`<base>/.claude/agents/<name>.md`, the sidecar lives at
+`<base>/.claude/agents/<name>.kit.json` (a sibling file, not inside a
+directory).
+
+The sidecar records the upstream `version` at install time, a
+SHA-256 hash of the *upstream source bytes* at install time, and an
+ISO-8601 UTC timestamp. Two design choices are load-bearing:
+
+- **Hash the upstream files, not the destination files.** Hashing the
+  destination would make the install-time hash equal whatever was just
+  copied — drift detection would be a tautology.
+- **The hash framing must be byte-stable across platforms.** Sort the
+  file list, length-prefix each file, and separate fields with NUL
+  bytes. See `computeKitHash` in the [Implementation](#implementation)
+  section. Pin the algorithm with a unit test that asserts a known
+  byte input produces a known hex digest — every caller (install,
+  status, future tools) must produce the same output for identical
+  upstream content.
+
+#### Schema evolution
+
+The top-level `version` field of `kit.json` is a separate axis. Bumping
+it (e.g. `1 → 2` when introducing per-entry `version`) signals a breaking
+schema change. The CLI declares per-entry `version` as `Maybe Text` so
+v1 manifests parse cleanly and degrade — every row computed against a
+v1 entry simply has `LATEST = -` and falls into the hash branch of
+classification.
+
+#### What this design does *not* catch
+
+The content hash recorded in the sidecar is the hash of the *upstream*
+source files at install time, not the destination files. Comparing it
+against a fresh hash of the upstream therefore measures upstream drift,
+not *local* drift — if a user manually edits their installed copy, the
+status command will not detect it. Surfacing local edits would require a
+second hash check against the destination tree and a fifth state token
+(e.g. `local-edit`) or splitting `dirty` into `dirty-upstream` and
+`dirty-local`. Treat that as a separate enhancement, not part of the
+core pattern.
 
 ## Operational Properties
 
 | Property | Behavior |
 |----------|----------|
-| **Idempotent install** | Re-installing overwrites with the latest cached version |
-| **Idempotent uninstall** | Uninstalling something not installed prints a message, doesn't fail |
-| **Idempotent update** | `git pull --ff-only` + re-copy of changed files |
-| **Offline resilience** | Falls back to cached manifest if GitHub is unreachable |
+| **Idempotent install** | Re-installing overwrites with the latest cached version and rewrites the sidecar |
+| **Idempotent uninstall** | Uninstalling something not installed prints a message, doesn't fail. Sidecar is removed alongside the item |
+| **Idempotent update** | `git pull --ff-only` + re-copy of changed files + sidecar refresh |
+| **Drift visibility** | `kit status` reports per-item state (`up-to-date`/`outdated`/`dirty`/`unknown`) against the live manifest |
+| **Offline resilience** | Falls back to cached manifest if the remote is unreachable; when even the cache is missing, every row degrades to `unknown` |
 | **No database** | All operations are filesystem + git; no connection string needed |
 | **Disposable cache** | `~/.cache/<project>/kit/` can be deleted and will be re-cloned |
+| **Disposable sidecar** | Deleting a `.kit.json` flips that row to `unknown`; re-installing brings it back |
 | **Shallow clone** | Uses `--depth 1` to minimize bandwidth and disk usage |
 
 ## End-to-End Flow
@@ -534,6 +768,9 @@ The manifest has a `version` field for forward compatibility. The current conven
 
 4. CLI copies skills/automation-config/SKILL.md to:
    ~/.config/<project>/agents/.claude/skills/automation-config/SKILL.md
+   …and writes a sibling sidecar:
+   ~/.config/<project>/agents/.claude/skills/automation-config/.kit.json
+   { name, kind, version (from manifest), hash (of upstream files), installedAt }
 
 5. User runs:  mycli agent assist
 
