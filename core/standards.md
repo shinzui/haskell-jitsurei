@@ -37,6 +37,22 @@ GHC2024 already provides `DataKinds`, `DerivingStrategies`, `LambdaCase`, and ot
 
 Projects may add more extensions to the `common` stanza when justified by a documented pattern — for example, `MultilineStrings` per [Multiline String Literals](./multiline-strings.md), or `PackageImports` per [Custom Prelude Pattern](./custom-prelude.md).
 
+## Import Style
+
+**Qualified imports must use postpositive `qualified` syntax.** GHC2024 includes `ImportQualifiedPost`, so this is available everywhere without an extra extension.
+
+```haskell
+-- CORRECT: postpositive
+import Data.Map.Strict qualified as Map
+import Data.Text qualified as Text
+
+-- WRONG: prepositive
+import qualified Data.Map.Strict as Map
+import qualified Data.Text as Text
+```
+
+Postpositive `qualified` keeps the module name in the same column as unqualified imports, which makes import blocks easier to scan and sort.
+
 ## Related Patterns
 
 For conventions that build on this baseline:
