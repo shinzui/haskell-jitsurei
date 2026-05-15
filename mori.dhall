@@ -146,5 +146,13 @@ in  Schema.Project::{ project =
         , location =
             Schema.DocLocation.LocalFile "cli/help-width.md"
         }
+      , Schema.DocRef::{ key = "cli-claude-cli-pitfalls"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Pitfalls when invoking the `claude` CLI as a subprocess from a Haskell CLI: the variadic --add-dir greedily eats the positional prompt without a `--` terminator (errors on short prompts, hangs on large ones); fix, stdin alternative, and a contract test to catch regressions"
+        , location =
+            Schema.DocLocation.LocalFile "cli/agents/claude-cli-pitfalls.md"
+        }
       ]
     }
