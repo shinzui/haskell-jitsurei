@@ -154,5 +154,13 @@ in  Schema.Project::{ project =
         , location =
             Schema.DocLocation.LocalFile "cli/agents/claude-cli-pitfalls.md"
         }
+      , Schema.DocRef::{ key = "core-standards"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Baseline Haskell standards: minimum GHC 9.12, GHC2024 language edition, and the mandatory default-extensions (DeriveAnyClass, DuplicateRecordFields, OverloadedLabels, OverloadedStrings) every package must enable"
+        , location =
+            Schema.DocLocation.LocalFile "core/standards.md"
+        }
       ]
     }
