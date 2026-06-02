@@ -35,9 +35,6 @@ module Service.Prelude
   )
 where
 
--- Enable #label syntax for Generic records
-import "generic-lens" Data.Generics.Labels ()
-
 -- Re-export lens operators
 import "lens" Control.Lens
 
@@ -47,6 +44,53 @@ import Data.Time as X (UTCTime, Day)
 import GHC.Generics as X (Generic)
 import Data.Aeson as X (FromJSON, ToJSON, Value)
 ```
+
+**Important**: The prelude does **not** import `Data.Generics.Labels`. See [Enabling `#label` Syntax](#enabling-label-syntax) below.
+
+## Enabling `#label` Syntax
+
+The `#fieldName` syntax (`OverloadedLabels`) resolves through an `IsLabel`
+instance. generic-lens supplies one as an **orphan instance** in
+`Data.Generics.Labels`, which turns `#field` into a lens over a `Generic`
+record. To use `#label` access in a module you must bring that instance into
+scope:
+
+```haskell
+module Service.Domain.Member.MemberDecider where
+
+import Service.Prelude
+import "generic-lens" Data.Generics.Labels ()  -- enables #label here
+
+decide :: MemberCommand -> MemberState -> [MemberEvent]
+decide cmd state = ... state ^. #status ...
+```
+
+### Import it per-module, not in the prelude
+
+It is tempting to import `Data.Generics.Labels ()` once in the [custom
+prelude](./custom-prelude.md) so every module gets `#label` for free. **Do not
+do this.** Because `IsLabel` is an orphan instance, re-exporting it from the
+prelude forces the generic-lens interpretation of `#label` onto *every* module
+in the project.
+
+That breaks any module that needs a **different** `IsLabel` instance — most
+notably the **keiki DSL**, which overloads `#label` for its own purposes. When
+both the generic-lens orphan and the keiki instance are in scope, GHC reports
+overlapping `IsLabel` instances, and the conflict cannot be resolved at the use
+site.
+
+Keeping the import out of the prelude makes `#label` resolution a local,
+per-module decision:
+
+- Modules that manipulate `Generic` records import `Data.Generics.Labels ()`
+  and get generic-lens `#label`.
+- Modules that use the keiki DSL import the DSL's `IsLabel` instance instead and
+  are never exposed to the generic-lens orphan.
+- A module that genuinely needs both must reconcile them explicitly, rather than
+  inheriting an unwanted instance from the prelude.
+
+**Rule**: import `Data.Generics.Labels ()` in each module that uses `#label`
+over `Generic` records, using `PackageImports` to pin it to `generic-lens`.
 
 ## Record Definition Conventions
 
@@ -136,6 +180,7 @@ Extract a field value:
 
 ```haskell
 import Service.Prelude
+import "generic-lens" Data.Generics.Labels ()  -- enables #label access
 
 getMemberStatus :: MemberSynchronizationData -> MemberStatus
 getMemberStatus syncData = syncData ^. #status
@@ -450,6 +495,7 @@ data MemberBannedData = MemberBannedData
 module Service.Domain.Member.MemberDecider where
 
 import Service.Prelude
+import "generic-lens" Data.Generics.Labels ()  -- enables #label access below
 import Service.Domain.Member.MemberCommand
 import Service.Domain.Member.MemberEvent
 import qualified TanES.Decider as D

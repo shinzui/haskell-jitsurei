@@ -42,11 +42,14 @@ import "aeson" Data.Aeson.Casing as X (camelTo2)
 
 import "time" Data.Time as X (UTCTime, getCurrentTime)
 
--- Enable #label syntax for Generic records
-import "generic-lens" Data.Generics.Labels ()
-
 -- Re-export lens operators
 import "lens" Control.Lens
+
+-- NOTE: Do NOT import "generic-lens" Data.Generics.Labels () here.
+-- That orphan IsLabel instance enables generic-lens #label syntax, but
+-- re-exporting it from the prelude forces it on every module — which
+-- collides with other modules that define their own IsLabel instances
+-- (notably the keiki DSL). Import it per-module where #label is used.
 ```
 
 ### Key Points
@@ -59,8 +62,8 @@ import "lens" Control.Lens
   ```
 
 - **Re-export via `as X`** — the `module X` export in the module header collects everything imported `as X`
-- **Import `Data.Generics.Labels ()`** — this orphan instance import enables the `#label` syntax; importing it here means no module needs to remember it
 - **Export `Control.Lens` directly** — lens operators are used everywhere and benefit from a blanket re-export
+- **Do NOT re-export `Data.Generics.Labels`** — it is tempting to enable `#label` syntax once in the prelude, but the orphan `IsLabel` instance it provides then leaks into every module. Any module that needs a *different* `IsLabel` instance — most notably the **keiki DSL**, which overloads `#label` for its own purposes — would then conflict with the generic-lens instance, producing overlapping-instance errors that cannot be resolved locally. Keep the prelude free of it and import it explicitly in the modules that use generic-lens `#label` access. See [Record Patterns](./record-patterns.md) for the per-module pattern.
 
 ## Cabal Configuration
 
@@ -154,4 +157,15 @@ data MemberStatusChangedData = MemberStatusChangedData
   deriving anyclass (FromJSON, ToJSON)
 ```
 
-No additional imports are needed for `Generic`, `UTCTime`, `Text`, `FromJSON`, `ToJSON`, lens operators, or `#label` syntax — the prelude provides them all.
+No additional imports are needed for `Generic`, `UTCTime`, `Text`, `FromJSON`, `ToJSON`, or lens operators — the prelude provides them all.
+
+The one thing the prelude deliberately does **not** provide is the generic-lens `#label` instance. Modules that use `#label` access over `Generic` records add it themselves:
+
+```haskell
+module Service.Domain.Member.MemberDecider where
+
+import Service.Prelude
+import "generic-lens" Data.Generics.Labels ()  -- enables #label access
+```
+
+This keeps the orphan `IsLabel` instance from leaking into modules that need a different one (e.g. the keiki DSL). See [Record Patterns](./record-patterns.md#enabling-label-syntax) for the rationale.
