@@ -221,6 +221,12 @@ So the full installed path for a user-scope skill is:
 ~/.config/<project>/agents/.claude/skills/automation-config/SKILL.md
 ```
 
+> **Multi-provider note.** The paths above are Claude Code's layout. If your
+> CLI can also launch **Codex** (OpenAI's CLI) sessions, Codex discovers skills
+> and agents from entirely different roots and does *not* read `.claude/...`.
+> Installing into both layouts is a self-contained extension of this pattern —
+> see [Provider-Neutral Kits (Claude Code + Codex)](#provider-neutral-kits-claude-code--codex).
+
 ### 7. The Cache Layer
 
 The kit repo is shallow-cloned to `~/.cache/<project>/kit/` on first use. Subsequent operations run `git pull --ff-only` to update.
@@ -538,6 +544,192 @@ the resolver will otherwise pick incompatible versions transitively. If
 does under `DuplicateRecordFields`), `import Crypto.Hash qualified as Hash`
 at the call site is the simplest fix.
 
+## Provider-Neutral Kits (Claude Code + Codex)
+
+Everything above assumes one consumer: **Claude Code**, which discovers
+`.claude/skills/` and `.claude/agents/` inside any `--add-dir` directory. The moment
+your CLI can also launch **Codex** (OpenAI's CLI) interactive sessions, that assumption
+breaks — and it breaks *silently*. Codex does not read `.claude/...` at all, and passing
+the directory with `--add-dir` does not help: in Codex, `--add-dir` only marks a
+directory **writable** in the sandbox; it is not a discovery mechanism. So a user who
+runs `<project> kit install foo` and then starts a Codex session gets *none* of their
+installed kit content, with no error. The kit feature is quietly Claude-only.
+
+The fix lives entirely in **installation**, not in the session launcher. Make `kit
+install`/`update`/`uninstall`/`status` write **both** provider layouts. The launcher is
+unchanged — it still passes the agent base dirs to both CLIs via `--add-dir` (harmless
+for Codex), and Codex finds its content through its own native roots.
+
+### How Codex discovers skills and agents
+
+Confirmed against the official Codex docs ([skills](https://developers.openai.com/codex/skills),
+[subagents](https://developers.openai.com/codex/subagents)), Codex uses different roots
+*and a different agent file format* than Claude Code:
+
+| Asset | Claude Code | Codex |
+|-------|-------------|-------|
+| **Skill** | `.claude/skills/<name>/SKILL.md` | `.agents/skills/<name>/SKILL.md` |
+| **Agent** | `.claude/agents/<name>.md` (Markdown) | `.codex/agents/<name>.toml` (**TOML**) |
+| Skill discovery root | any `--add-dir` directory | `.agents/skills` scanned from CWD up to the repo root; plus `$HOME/.agents/skills` |
+| Agent discovery root | `.claude/agents` under an `--add-dir` directory | `.codex/agents/` (project) or `~/.codex/agents/` (user) |
+
+Two consequences shape the design:
+
+1. **Codex skills are a directory copy (same `SKILL.md`), but Codex agents need a format
+   conversion.** Claude agents are Markdown with YAML frontmatter; Codex custom agents
+   are standalone TOML files with `name`, `description`, and `developer_instructions`
+   keys. The kit's agent Markdown body becomes the `developer_instructions` value.
+2. **Codex content does not live under your `<project>` agent base dir.** Claude content
+   sits below `~/.config/<project>/agents/` (user) or `./<project>/agents/` (project)
+   because that is what you mount with `--add-dir`. Codex scans *its own* roots, so Codex
+   content must land at the **working-tree root** (`.agents/skills`, `.codex/agents`) for
+   project scope and under **`$HOME`** (`$HOME/.agents/skills`, `$HOME/.codex/agents`) for
+   user scope — never below the `<project>` agent base.
+
+### The path-layout module
+
+Rather than scatter `.claude` / `.agents` / `.codex` string literals across the handler,
+put every provider-native path in one module. The cleanest version of this is a tiny
+library that, given a provider and an item name, returns the relative tail — and a
+renderer that turns a kit agent into Codex TOML. (In the reference fleet this is
+`Baikai.AgentAssets`, a shared dependency reused verbatim by every CLI that has a kit; if
+you have no such shared library, the helper below is self-contained.)
+
+```haskell
+data KitProviderLayout = ClaudeLayout | CodexLayout
+  deriving stock (Eq, Ord, Show)
+
+allKitProviderLayouts :: [KitProviderLayout]
+allKitProviderLayouts = [ClaudeLayout, CodexLayout]
+
+providerLabel :: KitProviderLayout -> Text
+providerLabel ClaudeLayout = "claude"
+providerLabel CodexLayout  = "codex"
+
+-- Relative tail of an installed skill directory, below a provider base dir.
+skillRelDir :: KitProviderLayout -> Text -> FilePath
+skillRelDir ClaudeLayout n = ".claude" </> "skills" </> T.unpack n
+skillRelDir CodexLayout  n = ".agents" </> "skills" </> T.unpack n
+
+-- Relative path of an installed agent file, below a provider base dir.
+-- Note the extension differs: Markdown for Claude, TOML for Codex.
+agentRelFile :: KitProviderLayout -> Text -> FilePath
+agentRelFile ClaudeLayout n = ".claude" </> "agents" </> T.unpack n <> ".md"
+agentRelFile CodexLayout  n = ".codex"  </> "agents" </> T.unpack n <> ".toml"
+
+-- Render the minimal TOML a Codex custom agent expects. The kit agent's
+-- Markdown body becomes developer_instructions (a triple-quoted block).
+codexAgentToml :: Text -> Text -> Text -> Text
+codexAgentToml agentName desc instructions =
+  T.unlines
+    [ "name = " <> tomlString agentName
+    , "description = " <> tomlString desc
+    , "developer_instructions = " <> tomlMultiline instructions
+    ]
+  where
+    tomlString t = "\"" <> T.concatMap esc t <> "\""
+    esc '"'  = "\\\""; esc '\\' = "\\\\"; esc '\n' = "\\n"
+    esc '\r' = "\\r";  esc '\t' = "\\t";  esc c = T.singleton c
+    tomlMultiline t = "\"\"\"\n" <> T.replace "\"\"\"" "\\\"\\\"\\\"" t <> "\n\"\"\""
+```
+
+### Per-provider base-dir resolution
+
+The one subtlety that catches people: the **base dir is provider-dependent**. Claude
+keeps the existing `<project>` agent base; Codex uses the working tree / `$HOME` directly.
+
+```haskell
+-- Claude: the <project> agent base (unchanged from the single-provider design).
+-- Codex:  its own native roots — CWD for project scope, $HOME for user scope.
+resolveProviderTargetDir :: KitProviderLayout -> KitScope -> IO FilePath
+resolveProviderTargetDir ClaudeLayout scope        = resolveTargetDir scope
+resolveProviderTargetDir CodexLayout  UserScope    = getHomeDirectory
+resolveProviderTargetDir CodexLayout  ProjectScope = getCurrentDirectory
+```
+
+So a project-scope skill `foo` lands at **both**:
+
+```
+./<project>/agents/.claude/skills/foo/SKILL.md     # Claude (below the agent base)
+./.agents/skills/foo/SKILL.md                      # Codex (working-tree root)
+```
+
+and a project-scope agent `bar` lands at **both**:
+
+```
+./<project>/agents/.claude/agents/bar.md           # Claude Markdown
+./.codex/agents/bar.toml                           # Codex TOML (converted)
+```
+
+### Layout-aware install
+
+`doInstall` loops over every provider layout. Skills copy identically into both skill
+roots; agents copy the Markdown for Claude and write converted TOML for Codex.
+
+```haskell
+doInstall :: FilePath -> KitItem -> KitScope -> IO ()
+doInstall repoDir (KitSkillItem entry) scope =
+  forM_ allKitProviderLayouts $ \layout -> do
+    base <- resolveProviderTargetDir layout scope
+    let targetDir = base </> skillRelDir layout (name entry)
+    createDirectoryIfMissing True targetDir
+    mapM_ (copySkillFile repoDir entry targetDir) (files entry)
+doInstall repoDir (KitAgentItem entry) scope =
+  forM_ allKitProviderLayouts $ \layout -> do
+    base <- resolveProviderTargetDir layout scope
+    let dstFile = base </> agentRelFile layout (name entry)
+        srcFile = repoDir </> T.unpack (path entry)
+    createDirectoryIfMissing True (takeDirectory dstFile)
+    case layout of
+      ClaudeLayout -> copyFile srcFile dstFile           -- Markdown as-is
+      CodexLayout  -> do                                  -- convert to TOML
+        body <- TIO.readFile srcFile
+        TIO.writeFile dstFile (codexAgentToml (name entry) (description entry) body)
+```
+
+### Symmetric lifecycle: uninstall, update, status
+
+The other operations loop over the same provider list so they stay symmetric:
+
+- **`isInstalled`** returns true if *any* provider layout has the item — otherwise
+  `update` would never repair a missing Codex copy.
+- **`uninstall`** removes every provider copy for the item+scope, and the message must
+  not imply only one provider was touched.
+- **`update`** needs no structural change: it re-runs `doInstall`, which now writes both
+  layouts, so a partial install (e.g. only the Claude copy) is repaired automatically.
+- **`status`** scans both layouts per scope and reports provider coverage. The smallest
+  readable shape is one row per item with a `PROVIDERS` cell (`claude,codex`); if you
+  already ship per-item versioning (the [sidecar](#the-sidecar) design above), classify
+  each provider copy independently — write one `.kit.json` sidecar per provider copy and
+  emit one status row per (item, scope, provider) so a drifted Codex copy can't hide
+  behind an up-to-date Claude one.
+
+```bash
+$ <project> kit status
+NAME              TYPE   PROVIDERS     SCOPE
+automation-config skill  claude,codex  user
+automation-author agent  claude,codex  project
+```
+
+### What stays the same
+
+The session launcher and `agentDirsForSession` are **untouched**. They already pass the
+`<project>` agent base dirs to both Claude and Codex via `--add-dir`. That remains correct:
+Claude uses those dirs to discover `.claude/...`, and for Codex the flag is a harmless
+writability grant while discovery happens through `.agents` / `.codex`. API-only providers
+(an Anthropic Messages or OpenAI Chat Completions backend, with no local CLI) load no local
+skills or agents at all, so they are out of scope for kit installation entirely.
+
+### Why a shared asset module pays off
+
+The path table, the format-per-provider rule, and the TOML renderer are identical across
+every CLI in a fleet that ships kits. Factoring them into one dependency (the reference
+fleet uses `Baikai.AgentAssets`) means: a CLI adopting Codex support adds the dependency
+to its `kit` command, writes a ~40-line `KitPaths` wrapper, and loops its handler over
+`allKitProviderLayouts` — no new path logic, no risk of two CLIs disagreeing about where
+Codex looks. When Codex changes a discovery root, one module updates and the whole fleet
+follows.
+
 ## GitHub Setup
 
 ### Creating the Kit Repository
@@ -784,6 +976,11 @@ core pattern.
    slash command in the session
 ```
 
+For a **multi-provider** kit (see [Provider-Neutral Kits](#provider-neutral-kits-claude-code--codex)),
+step 4 also writes `./.agents/skills/automation-config/SKILL.md` (project scope) or
+`$HOME/.agents/skills/...` (user scope), and a Codex session started in step 5 discovers
+it through Codex's native `.agents/skills` scan rather than through `--add-dir`.
+
 ## When to Use This Pattern
 
 - You distribute an AI-augmented CLI and want to ship reusable skills/agents separately from binary releases.
@@ -799,8 +996,23 @@ core pattern.
 
 ## Reference Implementation
 
+**Single-provider (Claude Code) + versioning:**
+
 - **Kit repo:** [mori-kit](https://github.com/shinzui/mori-kit)
 - **CLI command:** `mori-cli/src/Mori/Command/Kit.hs` (~490 lines)
 - **Agent session integration:** `mori-cli/src/Mori/Command/Agent.hs` (`agentDirsForSession`, `buildClaudeArgs`)
 - **Help topic:** `mori-cli/help/kit.md`
 - **Design doc:** `docs/plans/distributable-claude-skills.md`
+
+**Multi-provider (Claude Code + Codex):**
+
+- **Shared asset module:** `Baikai.AgentAssets` (in the `baikai` package) — owns the
+  provider-native path layouts (`skillTargetPath`, `agentTargetPath`, `agentAssetFormat`)
+  and the Codex custom-agent TOML renderer (`codexCustomAgentToml`, `CodexCustomAgent`).
+- **Seihou:** `seihou-cli/src/Seihou/CLI/KitPaths.hs` (the `KitProviderLayout` wrapper over
+  `Baikai.AgentAssets`) and `seihou-cli/src-exe/Seihou/CLI/Kit.hs` (`resolveProviderTargetDir`,
+  provider-looped install/uninstall/status); design doc
+  `seihou docs/plans/40-support-codex-kit-skills-and-agents.md`.
+- **Rei:** `rei-cli/src/Rei/Cli/Commands/Kit/` (`Paths.hs` + `Handler.hs`); design doc
+  `rei docs/plans/129-install-codex-native-kit-skills-and-agents.md` (under MasterPlan 13,
+  the provider-neutral LLM initiative).
