@@ -54,12 +54,16 @@ import "lens" Control.Lens
 
 ### Key Points
 
-- **Use `PackageImports`** — qualify each import with the package name to avoid ambiguity:
+- **Use `PackageImports`, but only here** — qualify each import with the package name to avoid ambiguity. Enable the extension with a per-file pragma at the top of the prelude module, **not** as a global `default-extension`:
 
   ```haskell
   {-# LANGUAGE PackageImports #-}
+  module Service.Prelude where
+
   import "base" GHC.Generics as X (Generic)
   ```
+
+  Package-qualified imports exist to disambiguate the re-exports the prelude collects; no other module needs them. Keeping `PackageImports` scoped to this one file (rather than in the cabal `default-extensions`) avoids encouraging package-qualified imports elsewhere in the codebase, where they add noise without benefit.
 
 - **Re-export via `as X`** — the `module X` export in the module header collects everything imported `as X`
 - **Export `Control.Lens` directly** — lens operators are used everywhere and benefit from a blanket re-export
@@ -96,6 +100,8 @@ common common
     OverloadedLabels
     OverloadedStrings
 ```
+
+Note that `PackageImports` is deliberately **absent** from `default-extensions`. It is only needed by the prelude module to disambiguate its re-exports, so it is enabled there with a per-file `{-# LANGUAGE PackageImports #-}` pragma rather than turned on project-wide.
 
 ## Adding Project-Wide Utilities
 
