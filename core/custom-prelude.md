@@ -175,3 +175,19 @@ import "generic-lens" Data.Generics.Labels ()  -- enables #label access
 ```
 
 This keeps the orphan `IsLabel` instance from leaking into modules that need a different one (e.g. the keiki DSL). See [Record Patterns](./record-patterns.md#enabling-label-syntax) for the rationale.
+
+## Resolving Import Conflicts
+
+Because the prelude re-exports a broad surface, a name it provides will occasionally clash with a name from another import — most often an operator. Two rules keep these conflicts resolvable:
+
+- **Hide the clashing name from the prelude import, never the other way around.** When a prelude re-export collides with a name you need from another module, hide it at the prelude import site:
+
+  ```haskell
+  import Service.Prelude hiding ((:=))
+
+  import "some-dsl" Some.DSL ((:=))  -- the (:=) you actually want here
+  ```
+
+  The prelude is imported in every module, so it is the predictable place to subtract a name. Hiding it there keeps the conflicting import clean and makes the intent obvious: *this module wants the other `(:=)`*.
+
+- **Never qualify operators.** Operators must always be imported unqualified — never write `M.<>` or `Map.!`. Qualified operator syntax is noisy, and reaching for it to dodge a clash is the wrong fix. Resolve operator conflicts by hiding the unwanted name (from the prelude, per the rule above), not by qualifying. Qualified imports are fine for ordinary identifiers; operators are the exception.
