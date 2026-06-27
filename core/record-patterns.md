@@ -59,7 +59,7 @@ scope:
 module Service.Domain.Member.MemberDecider where
 
 import Service.Prelude
-import "generic-lens" Data.Generics.Labels ()  -- enables #label here
+import Data.Generics.Labels ()  -- enables #label here
 
 decide :: MemberCommand -> MemberState -> [MemberEvent]
 decide cmd state = ... state ^. #status ...
@@ -90,7 +90,12 @@ per-module decision:
   inheriting an unwanted instance from the prelude.
 
 **Rule**: import `Data.Generics.Labels ()` in each module that uses `#label`
-over `Generic` records, using `PackageImports` to pin it to `generic-lens`.
+over `Generic` records. Use a plain (unqualified-by-package) import here —
+`PackageImports` is reserved for the [custom prelude](./custom-prelude.md),
+where it pins `Control.Lens` to the `lens` package. Per-module label imports do
+not need the package pin: `generic-lens` is the only provider of the
+`Data.Generics.Labels` module in scope, so a plain `import Data.Generics.Labels ()`
+resolves unambiguously.
 
 ## Record Definition Conventions
 
@@ -180,7 +185,7 @@ Extract a field value:
 
 ```haskell
 import Service.Prelude
-import "generic-lens" Data.Generics.Labels ()  -- enables #label access
+import Data.Generics.Labels ()  -- enables #label access
 
 getMemberStatus :: MemberSynchronizationData -> MemberStatus
 getMemberStatus syncData = syncData ^. #status
@@ -495,7 +500,7 @@ data MemberBannedData = MemberBannedData
 module Service.Domain.Member.MemberDecider where
 
 import Service.Prelude
-import "generic-lens" Data.Generics.Labels ()  -- enables #label access below
+import Data.Generics.Labels ()  -- enables #label access below
 import Service.Domain.Member.MemberCommand
 import Service.Domain.Member.MemberEvent
 import qualified TanES.Decider as D
