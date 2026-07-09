@@ -60,6 +60,10 @@ kizashiApi = Proxy
 
 ### Why, Beyond Taste
 
+**It is what lets the API be split along the domain instead of the layer.** This
+is the architectural reason, and it outweighs the rest. See [Vertical Slices](#vertical-slices)
+below.
+
 **Positional chains silently misroute.** This is the reason that costs real
 outages. In a `:<|>` API, handlers are supplied as a positional chain, and any
 two routes with the same *type* are interchangeable — transposing them typechecks,
@@ -135,6 +139,92 @@ positions.
 
 **OpenAPI generation takes the same type.** `toOpenApi (Proxy @(NamedRoutes ShomeiAPI))`
 describes exactly the contract the server serves.
+
+## Vertical Slices
+
+**Organize modules by domain aggregate, not by layer.** Everything belonging to one
+aggregate — its domain type, aggregate/decider, routes, DTOs, read model, queries,
+handler, workers — lives under one module prefix named for the aggregate. The layer
+is the *leaf* of the module path, never the root.
+
+```
+-- CORRECT: domain-first. danwa's Conversation slice, spanning four packages.
+danwa-api/src/Danwa/Conversation/Api.hs
+danwa-core/src/Danwa/Conversation/ReadModel.hs
+danwa-core/src/Danwa/Conversation/Generated/Domain.hs
+danwa-core/src/Danwa/Conversation/Generated/Projection.hs
+danwa-server/src/Danwa/Conversation/Handler.hs
+danwa-workers/src/Danwa/Conversation/Worker.hs
+
+-- WRONG: layer-first. meibo's Principal, smeared across seven locations.
+meibo-api/src/Meibo/Api/Routes.hs          -- every aggregate's routes, one file
+meibo-api/src/Meibo/Api/Types.hs           -- every aggregate's DTOs, one file
+meibo-core/src/Meibo/Domain/Principal.hs
+meibo-core/src/Meibo/Aggregate/Principal.hs
+meibo-core/src/Meibo/Effect/PrincipalStore.hs
+meibo-core/src/Meibo/Postgres/PrincipalStore.hs
+meibo-core/src/Meibo/ReadModel/Row.hs      -- every aggregate's rows, one file
+```
+
+Danwa states the convention in its own root module: *"The per-concept verticals own
+their own routes and DTOs."*
+
+### Packages Are Layers; Module Trees Are Not
+
+The two are easy to confuse. **Packages** stay split by layer, because they are
+*dependency* boundaries — `danwa-api` exists so `danwa-client` can depend on the
+route types without dragging in `danwa-core`. That split is load-bearing and stays.
+
+**Module paths inside each package** are domain-first. `Danwa/Conversation/Api`
+lives in `danwa-api`, `Danwa/Conversation/Handler` in `danwa-server`, and they share
+a prefix. Adding an aggregate means adding one module to each package it needs,
+all under one name. Reading an aggregate means one `grep` for one prefix.
+
+**Rule**: `<Project>/<Aggregate>/<Layer>.hs`, never `<Project>/<Layer>/<Aggregate>.hs`.
+
+### Why `:<|>` Fights This
+
+A `:<|>` API *can* be split into per-domain type aliases — kawa has a `DataRoutes`
+alias — so the obstacle is not literally that you cannot name a sub-API. It is that
+the pieces do not stay independent:
+
+- **The handler chain must mirror the flattened route order.** A domain module that
+  owns `ConversationRoutes = A :<|> B` also owns a positional `a :<|> b`. Inserting a
+  route into the middle of that slice silently shifts its own handlers, and the root
+  composition site has to know each slice's internal arity to assemble the whole.
+- **A shared URL prefix forces interleaving.** Two aggregates that both serve under
+  `/v1/actors` must be woven into one chain, so the *URL* structure dictates the
+  *module* structure. That is precisely the coupling vertical slicing exists to break.
+
+`NamedRoutes` removes both. Each aggregate exports a route record and a matching
+handler record; the root names them as fields; and several fields may mount at the
+same prefix. Kizashi relies on exactly this — four independently-owned sub-records
+under one `v1/actors` prefix:
+
+```haskell
+data KizashiApi mode = KizashiApi
+  { actors :: mode :- "v1" :> "actors" :> NamedRoutes ActorRegistryRoutes,
+    actorReads :: mode :- "v1" :> "actors" :> NamedRoutes ActorReadRoutes,
+    actorContext :: mode :- "v1" :> "actors" :> NamedRoutes ActorContextRoutes,
+    actorDigest :: mode :- "v1" :> "actors" :> NamedRoutes ActorDigestRoutes
+  }
+  deriving stock (Generic)
+```
+
+Each of those records can live in — and be owned by — its own vertical slice. With a
+positional chain they would be one interleaved list in one file, owned by nobody.
+
+The umbrella record then stays thin: a health check and one field per aggregate,
+mounting a record the aggregate owns.
+
+```haskell
+-- danwa-api/src/Danwa/Api.hs
+data DanwaAPI mode = DanwaAPI
+  { health :: mode :- "health" :> Get '[PlainText] Text,
+    conversations :: mode :- "conversations" :> NamedRoutes ConversationsAPI
+  }
+  deriving stock (Generic)
+```
 
 ### Auth Goes on the Field, Not the Record
 
@@ -377,6 +467,23 @@ data QueryRoutes mode = QueryRoutes
   deriving stock (Generic)
 ```
 
+### Don't Group Modules by Layer
+
+```
+-- WRONG: one Routes.hs and one Types.hs for every aggregate in the service
+Meibo/Api/Routes.hs
+Meibo/Api/Types.hs
+Meibo/Domain/Principal.hs
+
+-- CORRECT: the aggregate owns its routes, DTOs, and domain type
+Meibo/Principal/Api.hs
+Meibo/Principal/Domain.hs
+Meibo/Principal/ReadModel.hs
+```
+
+A single `Routes.hs` holding every endpoint is the symptom; the positional `:<|>`
+chain is what makes it the path of least resistance.
+
 ### Don't Throw `ServerError` for Domain Errors
 
 ```haskell
@@ -410,22 +517,27 @@ See the pitfall above. Use qualified selector application.
 
 As of 2026-07-09:
 
-| Project | Routes | Errors |
-|---|---|---|
-| shomei | `NamedRoutes` | `Verb` |
-| kizashi | `NamedRoutes` | `Verb` |
-| kotei | `NamedRoutes` | `Verb` |
-| danwa | `NamedRoutes` | `Verb` |
-| mori | `NamedRoutes` | `Verb` |
-| en | `:<|>` | **`MultiVerb`** |
-| kansoku | `:<|>` | `Verb` |
-| kawa | `:<|>` | `Verb` |
-| meibo | `:<|>` | **`MultiVerb`** |
+| Project | Routes | Errors | Module layout |
+|---|---|---|---|
+| danwa | `NamedRoutes` | `Verb` | **vertical** |
+| kotei | `NamedRoutes` | `Verb` | **vertical** (generated) |
+| kizashi | `NamedRoutes` | `Verb` | vertical core, layer-first api |
+| mori | `NamedRoutes` | `Verb` | vertical core, layer-first api |
+| shomei | `NamedRoutes` | `Verb` | layer-first |
+| en | `:<|>` | **`MultiVerb`** | layer-first |
+| kansoku | `:<|>` | `Verb` | layer-first |
+| kawa | `:<|>` | `Verb` | layer-first |
+| meibo | `:<|>` | **`MultiVerb`** | layer-first |
 
 `nagare` defines no API of its own; it consumes en's and shomei's generated clients.
 
-The `MultiVerb` convention originates in `en-servant/src/En/Servant/API.hs`, which
-is the reference implementation. Migration priority for the `:<|>` holdouts is by
-misordering exposure: **kansoku** (nine interchangeable handlers), **meibo**
-(nineteen routes, four interchangeable), **en** (eleven routes, actively growing),
-**kawa** (three routes, all distinct types — low stakes).
+The reference implementations: **danwa** for vertical slicing and the thin umbrella
+record, **kizashi** for several sub-records sharing a URL prefix, and
+`en-servant/src/En/Servant/API.hs` for the `MultiVerb` response convention.
+
+Migration priority for the `:<|>` holdouts, by misordering exposure: **kansoku**
+(nine interchangeable handlers), **meibo** (nineteen routes, four interchangeable),
+**en** (eleven routes, actively growing), **kawa** (three routes, all distinct types
+— low stakes). Note that route style and module layout are separate migrations:
+shomei is `NamedRoutes` but still layer-first, and converting a `:<|>` chain without
+also splitting the modules banks only part of the benefit.

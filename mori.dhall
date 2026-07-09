@@ -166,7 +166,7 @@ in  Schema.Project::{ project =
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
         , description = Some
-            "Servant API design: define routes as a NamedRoutes record rather than a positional :<|> chain (which silently misroutes same-typed neighbours), and make every terminal verb a MultiVerb whose response list declares the operation's error statuses, with a hand-written AsUnion instance and its exhaustiveness witness"
+            "Servant API design: organize modules as vertical slices per domain aggregate (layer is the leaf of the module path, never the root) and use a NamedRoutes record -- not a positional :<|> chain -- so each aggregate owns its own route and handler records and several may share a URL prefix; plus MultiVerb response lists that declare each operation's error statuses, with a hand-written AsUnion instance and its exhaustiveness witness"
         , location =
             Schema.DocLocation.LocalFile "api/servant-routes.md"
         }
