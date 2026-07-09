@@ -99,14 +99,21 @@ same prefix* — each owned by a different module:
 ```haskell
 data ServiceApi mode = ServiceApi
   { status :: mode :- "service-status" :> Get '[PlainText] Text,
-    -- Four independently-owned sub-records, all mounted under /v1/actors.
+    -- Six independently-owned sub-records, all mounted under /v1/actors.
+    -- They come from five different slices; none of them knows about the others.
     actors :: mode :- "v1" :> "actors" :> NamedRoutes ActorRegistryRoutes,
     actorReads :: mode :- "v1" :> "actors" :> NamedRoutes ActorReadRoutes,
     actorContext :: mode :- "v1" :> "actors" :> NamedRoutes ActorContextRoutes,
-    actorDigest :: mode :- "v1" :> "actors" :> NamedRoutes ActorDigestRoutes
+    actorDigest :: mode :- "v1" :> "actors" :> NamedRoutes ActorDigestRoutes,
+    channelPrefs :: mode :- "v1" :> "actors" :> NamedRoutes ChannelPrefsRoutes,
+    digest :: mode :- "v1" :> "actors" :> NamedRoutes DigestRoutes
   }
   deriving stock (Generic)
 ```
+
+Under a positional chain those six records would be one interleaved list in one file.
+Here each is owned by the slice that implements it, and the URL prefix they happen to
+share costs nothing.
 
 This lets the route tree follow the *module* structure rather than the URL
 structure.
@@ -254,7 +261,7 @@ independent:
 
 `NamedRoutes` removes both. Each aggregate exports a route record and a matching
 handler record; the root names them as fields; and several fields may mount at the
-same prefix — as in the four `v1/actors` sub-records above. Each of those records
+same prefix — as in the six `v1/actors` sub-records above. Each of those records
 lives in, and is owned by, its own vertical slice. With a positional chain they
 would be one interleaved list in one file, owned by nobody.
 
