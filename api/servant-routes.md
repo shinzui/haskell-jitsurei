@@ -8,8 +8,12 @@ carry most of the weight:
    operation's error statuses, so errors are values in the type rather than
    exceptions thrown past it.
 
-The two are orthogonal — `en` uses `MultiVerb` inside a `:<|>` chain, and `shomei`
-uses `NamedRoutes` with plain `Verb`s — but new APIs should use both.
+The two are orthogonal — `MultiVerb` works inside a `:<|>` chain, and a `NamedRoutes`
+record works with plain `Verb`s — but new APIs should use both.
+
+The first rule is not really about servant. It is what allows an API to be split
+along [vertical slices](#vertical-slices), one per domain aggregate, rather than
+collected into a single `Routes.hs` grouped by layer.
 
 ## Required Extensions and Dependencies
 
@@ -54,8 +58,8 @@ for a description, `AsServerT m` for a record of handlers, `AsClientT` for a
 record of client functions. Serving needs a `Proxy` over `NamedRoutes`:
 
 ```haskell
-kizashiApi :: Proxy (NamedRoutes KizashiApi)
-kizashiApi = Proxy
+serviceApi :: Proxy (NamedRoutes ServiceApi)
+serviceApi = Proxy
 ```
 
 ### Why, Beyond Taste
@@ -69,35 +73,33 @@ outages. In a `:<|>` API, handlers are supplied as a positional chain, and any
 two routes with the same *type* are interchangeable — transposing them typechecks,
 compiles, serves, and returns the wrong data.
 
-`kansoku`'s `MetricsAPI` is the clean illustration: eleven endpoints, of which nine
-share a single `type MetricQuery = ... :> Get '[JSON] MetricResult` alias and differ
-only in a path literal.
+The hazard concentrates wherever several endpoints share a response type — a metrics
+API whose endpoints all answer `MetricResult`, or a resource whose reads all answer
+one view type:
 
 ```haskell
--- kansoku-api/src/Kansoku/Api/Metrics.hs
+type MetricQuery = QueryParam "from" Day :> Get '[JSON] MetricResult
+
 type MetricsAPI =
-       "metrics" :> "page-views"      :> MetricQuery
-  :<|> "metrics" :> "sessions"        :> MetricQuery
-  :<|> "metrics" :> "acquisition"     :> MetricQuery
-  :<|> "metrics" :> "users"           :> MetricQuery
-  :<|> "metrics" :> "organizations"   :> MetricQuery
-  -- ...
+       "metrics" :> "page-views"    :> MetricQuery
+  :<|> "metrics" :> "sessions"      :> MetricQuery
+  :<|> "metrics" :> "users"         :> MetricQuery
+  :<|> "metrics" :> "organizations" :> MetricQuery
 ```
 
-Swap the `users` and `organizations` handlers in the corresponding chain and GHC
-has nothing to object to. The endpoint serves org metrics under `/metrics/users`.
-With a record, the same mistake is a field-name error at the construction site.
+All four alternatives have the same type. Swap the `users` and `organizations`
+handlers in the corresponding chain and GHC has nothing to object to: the service
+compiles, serves, and returns org metrics under `/metrics/users`. With a record,
+the same mistake is a field-name error at the construction site.
 
 **Sub-APIs compose, and can share a path prefix.** A `:<|>` API is one flat chain;
 a record can mount other records as fields, and *several fields may mount at the
-same prefix*. `kizashi` mounts four different sub-records under `v1/actors`,
-each owned by a different module and a different plan:
+same prefix* — each owned by a different module:
 
 ```haskell
--- kizashi-api/src/Kizashi/Api/Root.hs
-data KizashiApi mode = KizashiApi
+data ServiceApi mode = ServiceApi
   { status :: mode :- "service-status" :> Get '[PlainText] Text,
-    signals :: mode :- "v1" :> "signals" :> NamedRoutes SignalRoutes,
+    -- Four independently-owned sub-records, all mounted under /v1/actors.
     actors :: mode :- "v1" :> "actors" :> NamedRoutes ActorRegistryRoutes,
     actorReads :: mode :- "v1" :> "actors" :> NamedRoutes ActorReadRoutes,
     actorContext :: mode :- "v1" :> "actors" :> NamedRoutes ActorContextRoutes,
@@ -107,133 +109,45 @@ data KizashiApi mode = KizashiApi
 ```
 
 This lets the route tree follow the *module* structure rather than the URL
-structure. `mori` does the same, one field per resource family.
+structure.
 
 **Growth is additive and checked.** Adding a route to a record adds a field, which
 breaks the server record construction until a handler exists for it. Adding a
 route to a `:<|>` chain in the wrong position silently shifts every handler after
-it. Both `kizashi` and `mori` lean on this deliberately — kizashi's `Root.hs`
-records the intent in a comment: *"Keep the record shape stable so those additions
-are purely additive"*, with each field annotated by the plan that introduced it.
+it. Keep the record shape stable and additions stay purely additive.
 
-**Unbuilt routes can be reserved.** `mori` parks not-yet-implemented families as
-`EmptyAPI` fields, which serve 404 until replaced:
+**Unbuilt routes can be reserved.** Park a not-yet-implemented family as an
+`EmptyAPI` field, which serves 404 until replaced:
 
 ```haskell
-    ingest :: mode :- EmptyAPI,   -- EP-132
-    openapi :: mode :- EmptyAPI   -- EP-133
+    ingest :: mode :- EmptyAPI,
+    openapi :: mode :- EmptyAPI
 ```
 
 **The client comes free.** `genericClient` derives a record of client functions
 from the same type — no positional destructuring of a `:<|>` client:
 
 ```haskell
--- shomei-client/src/Shomei/Client.hs
-shomeiClient :: ShomeiAPI (AsClientT ClientM)
-shomeiClient = genericClient
+-- The client record, derived from the same type.
+serviceClient :: ServiceAPI (AsClientT ClientM)
+serviceClient = genericClient
 ```
 
 **Handlers are a named record.** With `AsServerT`, the server is built by field
 name, so a reader can see which handler implements which route without counting
 positions.
 
-**OpenAPI generation takes the same type.** `toOpenApi (Proxy @(NamedRoutes ShomeiAPI))`
+**OpenAPI generation takes the same type.** `toOpenApi (Proxy @(NamedRoutes ServiceAPI))`
 describes exactly the contract the server serves.
-
-## Vertical Slices
-
-**Organize modules by domain aggregate, not by layer.** Everything belonging to one
-aggregate — its domain type, aggregate/decider, routes, DTOs, read model, queries,
-handler, workers — lives under one module prefix named for the aggregate. The layer
-is the *leaf* of the module path, never the root.
-
-```
--- CORRECT: domain-first. danwa's Conversation slice, spanning four packages.
-danwa-api/src/Danwa/Conversation/Api.hs
-danwa-core/src/Danwa/Conversation/ReadModel.hs
-danwa-core/src/Danwa/Conversation/Generated/Domain.hs
-danwa-core/src/Danwa/Conversation/Generated/Projection.hs
-danwa-server/src/Danwa/Conversation/Handler.hs
-danwa-workers/src/Danwa/Conversation/Worker.hs
-
--- WRONG: layer-first. meibo's Principal, smeared across seven locations.
-meibo-api/src/Meibo/Api/Routes.hs          -- every aggregate's routes, one file
-meibo-api/src/Meibo/Api/Types.hs           -- every aggregate's DTOs, one file
-meibo-core/src/Meibo/Domain/Principal.hs
-meibo-core/src/Meibo/Aggregate/Principal.hs
-meibo-core/src/Meibo/Effect/PrincipalStore.hs
-meibo-core/src/Meibo/Postgres/PrincipalStore.hs
-meibo-core/src/Meibo/ReadModel/Row.hs      -- every aggregate's rows, one file
-```
-
-Danwa states the convention in its own root module: *"The per-concept verticals own
-their own routes and DTOs."*
-
-### Packages Are Layers; Module Trees Are Not
-
-The two are easy to confuse. **Packages** stay split by layer, because they are
-*dependency* boundaries — `danwa-api` exists so `danwa-client` can depend on the
-route types without dragging in `danwa-core`. That split is load-bearing and stays.
-
-**Module paths inside each package** are domain-first. `Danwa/Conversation/Api`
-lives in `danwa-api`, `Danwa/Conversation/Handler` in `danwa-server`, and they share
-a prefix. Adding an aggregate means adding one module to each package it needs,
-all under one name. Reading an aggregate means one `grep` for one prefix.
-
-**Rule**: `<Project>/<Aggregate>/<Layer>.hs`, never `<Project>/<Layer>/<Aggregate>.hs`.
-
-### Why `:<|>` Fights This
-
-A `:<|>` API *can* be split into per-domain type aliases — kawa has a `DataRoutes`
-alias — so the obstacle is not literally that you cannot name a sub-API. It is that
-the pieces do not stay independent:
-
-- **The handler chain must mirror the flattened route order.** A domain module that
-  owns `ConversationRoutes = A :<|> B` also owns a positional `a :<|> b`. Inserting a
-  route into the middle of that slice silently shifts its own handlers, and the root
-  composition site has to know each slice's internal arity to assemble the whole.
-- **A shared URL prefix forces interleaving.** Two aggregates that both serve under
-  `/v1/actors` must be woven into one chain, so the *URL* structure dictates the
-  *module* structure. That is precisely the coupling vertical slicing exists to break.
-
-`NamedRoutes` removes both. Each aggregate exports a route record and a matching
-handler record; the root names them as fields; and several fields may mount at the
-same prefix. Kizashi relies on exactly this — four independently-owned sub-records
-under one `v1/actors` prefix:
-
-```haskell
-data KizashiApi mode = KizashiApi
-  { actors :: mode :- "v1" :> "actors" :> NamedRoutes ActorRegistryRoutes,
-    actorReads :: mode :- "v1" :> "actors" :> NamedRoutes ActorReadRoutes,
-    actorContext :: mode :- "v1" :> "actors" :> NamedRoutes ActorContextRoutes,
-    actorDigest :: mode :- "v1" :> "actors" :> NamedRoutes ActorDigestRoutes
-  }
-  deriving stock (Generic)
-```
-
-Each of those records can live in — and be owned by — its own vertical slice. With a
-positional chain they would be one interleaved list in one file, owned by nobody.
-
-The umbrella record then stays thin: a health check and one field per aggregate,
-mounting a record the aggregate owns.
-
-```haskell
--- danwa-api/src/Danwa/Api.hs
-data DanwaAPI mode = DanwaAPI
-  { health :: mode :- "health" :> Get '[PlainText] Text,
-    conversations :: mode :- "conversations" :> NamedRoutes ConversationsAPI
-  }
-  deriving stock (Generic)
-```
 
 ### Auth Goes on the Field, Not the Record
 
 Put the auth combinator on the individual routes that need it, so only those
-handlers receive the leading auth payload. `shomei` keeps `signup`/`login`/`refresh`
+handlers receive the leading auth payload. An auth service keeps `signup`/`login`/`refresh`
 public and marks the rest:
 
 ```haskell
-data ShomeiAPI mode = ShomeiAPI
+data ServiceAPI mode = ServiceAPI
   { login ::
       mode :- "auth" :> "login" :> ReqBody '[JSON] LoginRequest
              :> Post '[JSON] (WithCookies LoginResponse),
@@ -253,10 +167,10 @@ record-dot's `HasField` cannot see through. Selector application does reduce it.
 
 ```haskell
 -- WRONG: does not typecheck
-shomeiClient.signup body
+serviceClient.signup body
 
 -- CORRECT: qualified selector application
-API.signup shomeiClient body
+API.signup serviceClient body
 ```
 
 This is worth a comment at the call site; it looks like a record and reads like a
@@ -269,14 +183,92 @@ in a host application — is what `:<|>` is for, and there is no misordering haz
 because the alternatives have distinct types:
 
 ```haskell
--- shomei-servant/src/Shomei/Servant/API.hs
 type AppAPI =
-  "auth" :> NamedRoutes ShomeiAPI
+  "auth" :> NamedRoutes ServiceAPI
     :<|> Authenticated :> "projects" :> Get '[JSON] [Project]
     :<|> RequireRole "admin" :> Authenticated :> "admin" :> "users" :> Get '[JSON] [User]
 ```
 
 **Rule**: `:<|>` to mount records; never to enumerate the routes inside one.
+
+## Vertical Slices
+
+**Organize modules by domain aggregate, not by layer.** Everything belonging to one
+aggregate — its domain type, aggregate/decider, routes, DTOs, read model, queries,
+handler, workers — lives under one module prefix named for the aggregate. The layer
+is the *leaf* of the module path, never the root.
+
+```
+-- CORRECT: domain-first. One aggregate's slice, spanning four packages.
+service-api/src/Service/Conversation/Api.hs
+service-core/src/Service/Conversation/Domain.hs
+service-core/src/Service/Conversation/ReadModel.hs
+service-core/src/Service/Conversation/Projection.hs
+service-server/src/Service/Conversation/Handler.hs
+service-workers/src/Service/Conversation/Worker.hs
+
+-- WRONG: layer-first. One aggregate, smeared across seven locations.
+service-api/src/Service/Api/Routes.hs        -- every aggregate's routes, one file
+service-api/src/Service/Api/Types.hs         -- every aggregate's DTOs, one file
+service-core/src/Service/Domain/Conversation.hs
+service-core/src/Service/Aggregate/Conversation.hs
+service-core/src/Service/Effect/ConversationStore.hs
+service-core/src/Service/Postgres/ConversationStore.hs
+service-core/src/Service/ReadModel/Row.hs    -- every aggregate's rows, one file
+```
+
+The per-concept verticals own their own routes and DTOs. Under the layer-first
+layout, adding an aggregate means editing seven shared files, every one of which is
+a merge conflict against every other aggregate's work; under the vertical layout it
+means adding files nobody else touches.
+
+### Packages Are Layers; Module Trees Are Not
+
+The two are easy to confuse, and conflating them is what makes vertical slicing look
+impossible.
+
+**Packages** stay split by layer, because they are *dependency* boundaries — an
+`-api` package exists so the generated client can depend on the route types without
+dragging in `-core`. That split is load-bearing and stays.
+
+**Module paths inside each package** are domain-first. `Service/Conversation/Api`
+lives in `service-api`, `Service/Conversation/Handler` in `service-server`, and they
+share a prefix. Adding an aggregate means adding one module to each package it needs,
+all under one name. Reading an aggregate means one `grep` for one prefix.
+
+**Rule**: `<Project>/<Aggregate>/<Layer>.hs`, never `<Project>/<Layer>/<Aggregate>.hs`.
+
+### Why `:<|>` Fights This
+
+A `:<|>` API *can* be split into per-domain type aliases, so the obstacle is not
+literally that you cannot name a sub-API. It is that the pieces do not stay
+independent:
+
+- **The handler chain must mirror the flattened route order.** A domain module that
+  owns `ConversationRoutes = A :<|> B` also owns a positional `a :<|> b`. Inserting a
+  route into the middle of that slice silently shifts its own handlers, and the root
+  composition site has to know each slice's internal arity to assemble the whole.
+- **A shared URL prefix forces interleaving.** Two aggregates that both serve under
+  `/v1/actors` must be woven into one chain, so the *URL* structure dictates the
+  *module* structure. That is precisely the coupling vertical slicing exists to break.
+
+`NamedRoutes` removes both. Each aggregate exports a route record and a matching
+handler record; the root names them as fields; and several fields may mount at the
+same prefix — as in the four `v1/actors` sub-records above. Each of those records
+lives in, and is owned by, its own vertical slice. With a positional chain they
+would be one interleaved list in one file, owned by nobody.
+
+The umbrella record then stays thin: a health check and one field per aggregate,
+mounting a record the aggregate owns.
+
+```haskell
+-- The umbrella record: health, plus one field per aggregate.
+data RootApi mode = RootApi
+  { health :: mode :- "health" :> Get '[PlainText] Text,
+    conversations :: mode :- "conversations" :> NamedRoutes ConversationsAPI
+  }
+  deriving stock (Generic)
+```
 
 ## Part 2: `MultiVerb`
 
@@ -316,12 +308,12 @@ type OkResponses (desc :: Symbol) a =
    ]
 
 -- | What every handler returns. One constructor per distinct status.
-data MeiboResult a
-  = MeiboOk a
-  | MeiboBadRequest !ErrorEnvelopeWire
-  | MeiboNotFound !ErrorEnvelopeWire
-  | MeiboConflict !ErrorEnvelopeWire
-  | MeiboUnavailable !ErrorEnvelopeWire
+data ServiceResult a
+  = ServiceOk a
+  | ServiceBadRequest !ErrorEnvelopeWire
+  | ServiceNotFound !ErrorEnvelopeWire
+  | ServiceConflict !ErrorEnvelopeWire
+  | ServiceUnavailable !ErrorEnvelopeWire
   deriving stock (Generic, Eq, Show)
 ```
 
@@ -331,7 +323,7 @@ Used in a route:
   getPrincipal ::
     mode :- Authenticated :> "v1" :> "principals" :> Capture "id" PrincipalId
            :> MultiVerb 'GET '[JSON] (OkResponses "The principal" PrincipalView)
-                        (MeiboResult PrincipalView)
+                        (ServiceResult PrincipalView)
 ```
 
 A 204 uses `RespondEmpty` and `a ~ ()`; a 201 differs only in the success status,
@@ -354,20 +346,20 @@ instance
        Respond 409 "Conflict" ErrorEnvelopeWire,
        Respond 503 "Store unavailable" ErrorEnvelopeWire
      ]
-    (MeiboResult a)
+    (ServiceResult a)
   where
   toUnion = \case
-    MeiboOk value -> Z (I value)
-    MeiboBadRequest e -> S (Z (I e))
-    MeiboNotFound e -> S (S (Z (I e)))
-    MeiboConflict e -> S (S (S (Z (I e))))
-    MeiboUnavailable e -> S (S (S (S (Z (I e)))))
+    ServiceOk value -> Z (I value)
+    ServiceBadRequest e -> S (Z (I e))
+    ServiceNotFound e -> S (S (Z (I e)))
+    ServiceConflict e -> S (S (S (Z (I e))))
+    ServiceUnavailable e -> S (S (S (S (Z (I e)))))
   fromUnion = \case
-    Z (I value) -> MeiboOk value
-    S (Z (I e)) -> MeiboBadRequest e
-    S (S (Z (I e))) -> MeiboNotFound e
-    S (S (S (Z (I e)))) -> MeiboConflict e
-    S (S (S (S (Z (I e))))) -> MeiboUnavailable e
+    Z (I value) -> ServiceOk value
+    S (Z (I e)) -> ServiceBadRequest e
+    S (S (Z (I e))) -> ServiceNotFound e
+    S (S (S (Z (I e)))) -> ServiceConflict e
+    S (S (S (S (Z (I e))))) -> ServiceUnavailable e
     S (S (S (S (S impossible)))) -> case impossible of {}
 ```
 
@@ -378,22 +370,21 @@ the response list grows, that line stops compiling — which is the point.
 ### Share One Response List, Even If It Is Slightly Over-Broad
 
 Give every operation in a service the same error tail unless there is a reason not
-to. `en` shares one list across all six operations even though a write can never
-exceed a traversal bound (422), and explains why: the error sum is one closed type,
-so the type system cannot prove the write path never yields `ResolutionLimitExceeded`,
-and a narrower list would make the fault-to-result conversion partial.
+to. It is tempting to narrow the list per operation — a write cannot exceed a
+read's traversal bound, so why document a 422 on it? Because the domain fault type
+is one closed sum: the type system cannot prove the write path never yields
+`ResolutionLimitExceeded`, so a narrower list makes the fault-to-result conversion
+partial.
 
-> A total conversion is worth a slightly over-broad document.
-
-The payoff is a single total function from the domain fault type into the result
-type:
+**A total conversion is worth a slightly over-broad document.** The payoff is a
+single total function from the domain fault type into the result type:
 
 ```haskell
-faultToResult :: EnFault -> EnResult a
+faultToResult :: ServiceFault -> ServiceResult a
 faultToResult = \case
-  BadRequestFault envelope -> EnClientError envelope
-  UnprocessableFault envelope -> EnUnprocessable envelope
-  UnavailableFault envelope -> EnUnavailable envelope
+  BadRequestFault envelope -> ServiceBadRequest envelope
+  UnprocessableFault envelope -> ServiceUnprocessable envelope
+  UnavailableFault envelope -> ServiceUnavailable envelope
 ```
 
 ### Choosing Statuses
@@ -419,10 +410,11 @@ consistent:
 - **Authentication and rate-limit rejections** — raised by combinators or WAI
   middleware, upstream of the handler.
 - **405 Method Not Allowed and 415 Unsupported Media Type** — servant raises these
-  *outside* `ErrorFormatters`, so they currently return an empty body. Known gap.
+  *outside* `ErrorFormatters`, so they return an empty body. No hook exists for them.
 
-A useful consequence: because a 405 does not consume the request body, `en` moved
-tuple deletion from `DELETE` to `POST`.
+One consequence worth knowing: a 405 does not consume the request body. An endpoint
+that must read a body is better modelled as a `POST` than a `DELETE`, so a
+method mismatch cannot leave an unread body on the wire.
 
 ## Combining Both
 
@@ -430,18 +422,18 @@ The target shape for a new service is a `NamedRoutes` record whose every field i
 `MultiVerb`:
 
 ```haskell
-data MeiboApi mode = MeiboApi
+data PrincipalApi mode = PrincipalApi
   { register ::
       mode :- Authenticated :> "v1" :> "principals"
              :> ReqBody '[JSON] RegisterPrincipalRequest
              :> MultiVerb 'POST '[JSON]
                   (CreatedResponses "Principal registered" RegisterPrincipalResponse)
-                  (MeiboResult RegisterPrincipalResponse),
+                  (ServiceResult RegisterPrincipalResponse),
     getPrincipal ::
       mode :- Authenticated :> "v1" :> "principals" :> Capture "id" PrincipalId
              :> MultiVerb 'GET '[JSON]
                   (OkResponses "The principal" PrincipalView)
-                  (MeiboResult PrincipalView)
+                  (ServiceResult PrincipalView)
   }
   deriving stock (Generic)
 ```
@@ -471,14 +463,14 @@ data QueryRoutes mode = QueryRoutes
 
 ```
 -- WRONG: one Routes.hs and one Types.hs for every aggregate in the service
-Meibo/Api/Routes.hs
-Meibo/Api/Types.hs
-Meibo/Domain/Principal.hs
+Service/Api/Routes.hs
+Service/Api/Types.hs
+Service/Domain/Principal.hs
 
 -- CORRECT: the aggregate owns its routes, DTOs, and domain type
-Meibo/Principal/Api.hs
-Meibo/Principal/Domain.hs
-Meibo/Principal/ReadModel.hs
+Service/Principal/Api.hs
+Service/Principal/Domain.hs
+Service/Principal/ReadModel.hs
 ```
 
 A single `Routes.hs` holding every endpoint is the symptom; the positional `:<|>`
@@ -491,7 +483,7 @@ chain is what makes it the path of least resistance.
 getPrincipal pid = maybe (throwError err404) pure =<< lookupPrincipal pid
 
 -- CORRECT: the 404 is a response alternative
-getPrincipal pid = maybe (MeiboNotFound notFoundEnvelope) MeiboOk <$> lookupPrincipal pid
+getPrincipal pid = maybe (ServiceNotFound notFoundEnvelope) ServiceOk <$> lookupPrincipal pid
 ```
 
 ### Don't Derive `AsUnion` with `GenericAsUnion`
@@ -506,38 +498,9 @@ instance out; let the change break the build.
 StoreUnavailable -> throwError err500
 
 -- CORRECT: says a dependency is, and that a retry may work
-StoreUnavailable -> MeiboUnavailable (ErrorEnvelopeWire "store_unavailable" msg True)
+StoreUnavailable -> ServiceUnavailable (ErrorEnvelopeWire "store_unavailable" msg True)
 ```
 
 ### Don't Reach for `OverloadedRecordDot` on a Generated Client
 
 See the pitfall above. Use qualified selector application.
-
-## Adoption Status
-
-As of 2026-07-09:
-
-| Project | Routes | Errors | Module layout |
-|---|---|---|---|
-| danwa | `NamedRoutes` | `Verb` | **vertical** |
-| kotei | `NamedRoutes` | `Verb` | **vertical** (generated) |
-| kizashi | `NamedRoutes` | `Verb` | vertical core, layer-first api |
-| mori | `NamedRoutes` | `Verb` | vertical core, layer-first api |
-| shomei | `NamedRoutes` | `Verb` | layer-first |
-| en | `:<|>` | **`MultiVerb`** | layer-first |
-| kansoku | `:<|>` | `Verb` | layer-first |
-| kawa | `:<|>` | `Verb` | layer-first |
-| meibo | `:<|>` | **`MultiVerb`** | layer-first |
-
-`nagare` defines no API of its own; it consumes en's and shomei's generated clients.
-
-The reference implementations: **danwa** for vertical slicing and the thin umbrella
-record, **kizashi** for several sub-records sharing a URL prefix, and
-`en-servant/src/En/Servant/API.hs` for the `MultiVerb` response convention.
-
-Migration priority for the `:<|>` holdouts, by misordering exposure: **kansoku**
-(nine interchangeable handlers), **meibo** (nineteen routes, four interchangeable),
-**en** (eleven routes, actively growing), **kawa** (three routes, all distinct types
-— low stakes). Note that route style and module layout are separate migrations:
-shomei is `NamedRoutes` but still layer-first, and converting a `:<|>` chain without
-also splitting the modules banks only part of the benefit.
