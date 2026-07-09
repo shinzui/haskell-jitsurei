@@ -205,7 +205,7 @@ aggregate — its domain type, aggregate/decider, routes, DTOs, read model, quer
 handler, workers — lives under one module prefix named for the aggregate. The layer
 is the *leaf* of the module path, never the root.
 
-```
+```text
 -- CORRECT: domain-first. One aggregate's slice, spanning four packages.
 service-api/src/Service/Conversation/Api.hs
 service-core/src/Service/Conversation/Domain.hs
@@ -394,11 +394,50 @@ faultToResult = \case
   UnavailableFault envelope -> ServiceUnavailable envelope
 ```
 
+### The Tail Spans Two Sources
+
+Not every status in the shared list comes from the domain fault type. A service's engine
+error typically covers store and concurrency faults; the 404 and the 400/422 are usually
+raised at the *handler edge*, where a lookup returns `Nothing` or a request fails
+validation. Both feed the same result sum.
+
+This matters when choosing the fault type to build `faultToResult` over. Pick the engine
+error and you will find it has no not-found arm — that is correct, not a defect. Convert
+the engine error totally, and construct the edge statuses directly:
+
+```haskell
+-- engine faults: total conversion
+faultToResult :: ServiceFault -> ServiceResult a
+-- edge statuses: constructed where the condition is detected
+lookupPrincipal pid >>= maybe (pure (ServiceNotFound envelope)) (pure . ServiceOk)
+```
+
+### `MultiVerb` Changes the Generated Client
+
+Adding `MultiVerb` to a route changes what `genericClient` returns for it: callers now
+receive the result sum rather than the success payload. For a service whose client is
+consumed by other repositories, **this is a breaking change even if no module moves.**
+
+It is easy to miss, because the usual worry about a refactor like this is module paths.
+Either accept the break and bump, or fold the union back inside the client's wrapper
+functions so downstream signatures are unchanged:
+
+```haskell
+-- the wrapper absorbs the union; callers still see Either ClientError X
+check :: ClientEnv -> CheckRequest -> IO (Either ClientError CheckResponse)
+```
+
 ### Choosing Statuses
 
 - **A failed dependency is a 503, not a 500.** If the store is unreachable, *a
   dependency of the service* failed, not the service. Pair it with `retryable = True`;
   it is the only status for which retrying an unchanged request can succeed.
+- **A genuine internal fault is still a 500.** The rule above is not a ban on 500. A
+  decode failure, a replay failure, an impossible state — these are the service being
+  broken, and they belong in the response list as a 500 with `retryable = False`. Omit
+  the 500 arm only if the fault type provably has no internal case. Deciding by
+  reflex that "500 is wrong" makes `faultToResult` partial, which is the one thing the
+  shared list exists to prevent.
 - **`code` is what clients branch on**, never the message prose.
 
 ### What `MultiVerb` Cannot Cover
@@ -468,7 +507,7 @@ data QueryRoutes mode = QueryRoutes
 
 ### Don't Group Modules by Layer
 
-```
+```text
 -- WRONG: one Routes.hs and one Types.hs for every aggregate in the service
 Service/Api/Routes.hs
 Service/Api/Types.hs
@@ -506,6 +545,18 @@ StoreUnavailable -> throwError err500
 
 -- CORRECT: says a dependency is, and that a retry may work
 StoreUnavailable -> ServiceUnavailable (ErrorEnvelopeWire "store_unavailable" msg True)
+```
+
+The converse is equally wrong. Do not force a genuine internal fault into a 503 to
+satisfy the rule above — a decode failure is not retryable, and mislabelling it tells
+the caller to hammer a request that can never succeed.
+
+```haskell
+-- WRONG: not retryable, and no dependency failed
+HydrationDecodeFailed e -> ServiceUnavailable (ErrorEnvelopeWire "decode_failed" msg True)
+
+-- CORRECT
+HydrationDecodeFailed e -> ServiceInternal (ErrorEnvelopeWire "decode_failed" msg False)
 ```
 
 ### Don't Reach for `OverloadedRecordDot` on a Generated Client
