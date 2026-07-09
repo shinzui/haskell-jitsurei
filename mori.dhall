@@ -1,6 +1,6 @@
 let Schema =
-      https://raw.githubusercontent.com/shinzui/mori-schema/1f70781427426c09673d46f8e6733b7e7d0abedc/package.dhall
-        sha256:3b79aae9216456678300441ca8616b64a4b4fa520a1286dfcc418f60899d5d4a
+      https://raw.githubusercontent.com/shinzui/mori-schema/a3c59033a08c2eaef2cfba4a3c99fc9c192ca6d7/package.dhall
+        sha256:18258ef583580a897f4af3e7c86db0342afb42fb40efc535b217ba1089230141
 
 in  Schema.Project::{ project =
       Schema.ProjectIdentity::{ name = "haskell-jitsurei"
@@ -161,6 +161,14 @@ in  Schema.Project::{ project =
             "Baseline Haskell standards: minimum GHC 9.12, GHC2024 language edition, and the mandatory default-extensions (DeriveAnyClass, DuplicateRecordFields, OverloadedLabels, OverloadedStrings) every package must enable"
         , location =
             Schema.DocLocation.LocalFile "core/standards.md"
+        }
+      , Schema.DocRef::{ key = "api-servant-routes"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Servant API design: define routes as a NamedRoutes record rather than a positional :<|> chain (which silently misroutes same-typed neighbours), and make every terminal verb a MultiVerb whose response list declares the operation's error statuses, with a hand-written AsUnion instance and its exhaustiveness witness"
+        , location =
+            Schema.DocLocation.LocalFile "api/servant-routes.md"
         }
       ]
     }
