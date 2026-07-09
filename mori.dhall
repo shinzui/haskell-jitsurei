@@ -170,5 +170,13 @@ in  Schema.Project::{ project =
         , location =
             Schema.DocLocation.LocalFile "api/servant-routes.md"
         }
+      , Schema.DocRef::{ key = "api-openapi-from-types"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Derive the OpenAPI 3.1 document from the servant route types with toOpenApi and never hand-write or hand-edit openapi.json; pin the shinzui openapi-hs/servant-openapi-hs forks because Hackage openapi3/servant-openapi3 carry no HasOpenApi instance for MultiVerb and silently drop every declared error response; emit the artifact from an executable, check it in, and enforce it in CI with git diff --exit-code"
+        , location =
+            Schema.DocLocation.LocalFile "api/openapi-from-types.md"
+        }
       ]
     }

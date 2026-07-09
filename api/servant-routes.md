@@ -287,6 +287,12 @@ generated client's result type, and nothing forces the handler to actually be ab
 to produce it. The status set becomes a property of an error-mapping function
 rather than of the contract.
 
+Declaring the statuses in the type is only half of it — the document must be *derived*
+from that type for them to surface. See [Generating the OpenAPI Document from Servant
+Types](./openapi-from-types.md), and note that Hackage's `servant-openapi3` carries no
+`HasOpenApi` instance for `MultiVerb`: on those packages every response list below is
+silently dropped from the generated document.
+
 ### The Shape
 
 Declare the operation's responses as a type-level list, and give the handler a
