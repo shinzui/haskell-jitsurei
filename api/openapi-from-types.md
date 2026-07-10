@@ -67,6 +67,31 @@ library
 Note the module namespaces are unchanged from the upstream packages — you still
 `import Data.OpenApi` and `import Servant.OpenApi`. Only the package names differ.
 
+### Pin by Git URL and Tag, With One Tag Across the Cohort
+
+Three ways to get this wrong, all of them seen in the wild.
+
+**Do not depend on the Hackage names.** A `build-depends: openapi3, servant-openapi3` with
+no `source-repository-package` stanza silently resolves to Hackage. Nothing warns you. If
+that service uses `MultiVerb`, its document is already missing every error response.
+
+**Do not add the forks as local filesystem paths.** A `packages:` stanza naming
+`/Users/you/src/openapi-hs` builds on your laptop and nowhere else — not in CI, not for
+anyone who clones the repository. Use `source-repository-package` with a git URL.
+
+**Pin the same tag everywhere.** The two forks are coupled: `servant-openapi-hs` targets a
+specific `openapi-hs`. Different services pinning different `openapi-hs` commits will emit
+subtly different documents from equivalent types, and a shared DTO will get different
+schemas in two services' specifications. Record the pair of tags in one place and copy them
+verbatim.
+
+Check what a repository actually resolves before trusting its document:
+
+```bash
+grep -rn "openapi" --include="*.cabal" .   # Hackage names or fork names?
+grep -n  "openapi" cabal.project           # git stanzas, or local paths, or nothing?
+```
+
 
 ## The Generator Module
 
