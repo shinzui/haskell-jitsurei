@@ -68,10 +68,12 @@ serviceApi = Proxy
 is the architectural reason, and it outweighs the rest. See [Vertical Slices](#vertical-slices)
 below.
 
-**Positional chains silently misroute.** This is the reason that costs real
-outages. In a `:<|>` API, handlers are supplied as a positional chain, and any
-two routes with the same *type* are interchangeable — transposing them typechecks,
-compiles, serves, and returns the wrong data.
+**Positional chains silently misroute.** In a `:<|>` API, handlers are supplied as a
+positional chain. Two routes with the same *type* are interchangeable — transposing them
+typechecks, compiles, serves, and returns the wrong data — and a route inserted in the
+middle of the type shifts every handler after it. The record removes the positional
+failure mode, but read the qualification below before treating it as a safety guarantee;
+it is weaker than it first appears.
 
 The hazard concentrates wherever several endpoints share a response type — a metrics
 API whose endpoints all answer `MetricResult`, or a resource whose reads all answer
@@ -89,8 +91,25 @@ type MetricsAPI =
 
 All four alternatives have the same type. Swap the `users` and `organizations`
 handlers in the corresponding chain and GHC has nothing to object to: the service
-compiles, serves, and returns org metrics under `/metrics/users`. With a record,
-the same mistake is a field-name error at the construction site.
+compiles, serves, and returns org metrics under `/metrics/users`.
+
+**Be precise about what the record fixes, because it is easy to overclaim.** A record
+does *not* turn a same-typed transposition into a type error. Writing
+`users = organizationsHandler, organizations = usersHandler` typechecks, exactly as the
+chain did. What the record removes is the *positional* failure mode: you cannot miscount,
+and inserting a route in the middle cannot shift every handler after it. The remaining
+mistake has to be written out by name, in full view of the reader, rather than fallen
+into by arithmetic.
+
+Two consequences follow, and both matter.
+
+Where handler types *differ*, a chain already rejects a transposition — so the record
+buys clearer errors (GHC names the offending field) rather than new safety.
+
+Where handler types *coincide*, neither form is checked, and **only a runtime test
+closes the gap.** For every set of routes that share a handler type, write a dispatch
+test that pins each path to its own handler with a distinguishable response. That test,
+not the type system, is what makes a same-typed family safe.
 
 **Sub-APIs compose, and can share a path prefix.** A `:<|>` API is one flat chain;
 a record can mount other records as fields, and *several fields may mount at the
@@ -146,6 +165,41 @@ positions.
 
 **OpenAPI generation takes the same type.** `toOpenApi (Proxy @(NamedRoutes ServiceAPI))`
 describes exactly the contract the server serves.
+
+### Same-Typed Routes Need a Dispatch Test
+
+Neither a chain nor a record catches a transposition of two routes whose handlers have
+the same type. Find those families — routes differing only in a path literal, or in a
+capture of the same underlying type — and pin each one with a test that asserts the path
+reaches *its own* handler.
+
+The cheapest form gives each handler a distinguishable response and asserts both
+directions, so a swap fails two tests rather than none:
+
+```haskell
+testCase "by-handle resolves a handle, and only a handle" $ do
+  get "/v1/principals/by-handle/alice"   `shouldRespondWith` 200
+  get "/v1/principals/by-handle/usr_01x" `shouldRespondWith` 404
+
+testCase "by-credential resolves a subject, and only a subject" $ do
+  get "/v1/principals/by-credential/usr_01x" `shouldRespondWith` 200
+  get "/v1/principals/by-credential/alice"   `shouldRespondWith` 404
+```
+
+Write this test *before* converting a chain to a record. It is the only thing that
+protects the conversion, and it is the acceptance criterion that the conversion preserved
+behavior.
+
+### Field Order Is Not Load-Bearing
+
+A chain must sometimes be ordered by hand: a literal segment like `by-handle` placed after
+a sibling `Capture "id" PrincipalId` risks the literal being offered to the capture's
+parser. It is tempting to assume a record inherits that constraint through its field order.
+
+It does not. Servant's router hoists a literal path segment above the sibling `Capture` it
+shadows, independent of declaration order. Reordering the fields of a route record does not
+change which route a path reaches. Verify it once in your own service rather than trusting
+either claim — a dispatch test over the literal and the capture settles it.
 
 ### Auth Goes on the Field, Not the Record
 
@@ -498,15 +552,18 @@ handler reached by name.
 ### Don't Enumerate Routes with `:<|>`
 
 ```haskell
--- WRONG: positional; same-typed neighbours are silently swappable
+-- WRONG: positional. Handlers are supplied by counting, and a route inserted in the
+-- middle silently shifts every handler after it.
 type QueryRoutes =
        Authenticated :> "v1" :> "principals" :> "by-handle" :> Capture "handle" Text :> Get '[JSON] PrincipalView
-  :<|> Authenticated :> "v1" :> "principals" :> Capture "id" PrincipalId :> Get '[JSON] PrincipalView
+  :<|> Authenticated :> "v1" :> "principals" :> "by-credential" :> Capture "sub" Text :> Get '[JSON] PrincipalView
 
--- CORRECT: named fields
+-- CORRECT: named fields. The two routes below still share a handler type
+-- (AuthUser -> Text -> Handler PrincipalView), so swapping them STILL COMPILES.
+-- A dispatch test is what catches that; see "Same-Typed Routes Need a Dispatch Test".
 data QueryRoutes mode = QueryRoutes
   { byHandle :: mode :- Authenticated :> "v1" :> "principals" :> "by-handle" :> Capture "handle" Text :> Get '[JSON] PrincipalView,
-    getById :: mode :- Authenticated :> "v1" :> "principals" :> Capture "id" PrincipalId :> Get '[JSON] PrincipalView
+    byCredential :: mode :- Authenticated :> "v1" :> "principals" :> "by-credential" :> Capture "sub" Text :> Get '[JSON] PrincipalView
   }
   deriving stock (Generic)
 ```
