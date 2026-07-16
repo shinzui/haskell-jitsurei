@@ -178,5 +178,13 @@ in  Schema.Project::{ project =
         , location =
             Schema.DocLocation.LocalFile "api/openapi-from-types.md"
         }
+      , Schema.DocRef::{ key = "api-rfc7807-problem-details"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "RFC 7807 (RFC 9457) problem details as the one error-body shape fleet-wide, served as application/problem+json: type pinned to about:blank, stable title per code, status/detail, plus code and retryable extension members clients branch on; a ProblemJSON content type with RespondAs for MultiVerb APIs, a single problemError renderer plus ProblemSpec catalog for ServerError-style APIs, ErrorFormatters for servant's own rejections (405 needs WAI middleware or an explicit exemption), the OAuth/probe/non-JSON exemptions, and the ToSchema-shares-the-codec-Options rule for the OpenAPI document"
+        , location =
+            Schema.DocLocation.LocalFile "api/rfc7807-problem-details.md"
+        }
       ]
     }

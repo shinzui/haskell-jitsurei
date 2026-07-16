@@ -352,6 +352,14 @@ silently dropped from the generated document.
 Declare the operation's responses as a type-level list, and give the handler a
 plain sum type that maps onto it.
 
+> **The error body is standardized separately.** The `ErrorEnvelopeWire` in the examples
+> below predates the fleet's adoption of RFC 7807; the wire shape is now a problem
+> details document served as `application/problem+json` — see [RFC 7807 Problem Details
+> for Error Bodies](./rfc7807-problem-details.md). Everything structural here (the
+> response list, the result sum, `AsUnion`, `faultToResult`) applies unchanged; only the
+> payload type and the error alternatives' combinator (`RespondAs ProblemJSON` instead of
+> `Respond`) differ.
+
 ```haskell
 import Servant.API.MultiVerb (AsUnion (..), MultiVerb, Respond, RespondEmpty)
 
@@ -517,6 +525,8 @@ consistent:
   middleware, upstream of the handler.
 - **405 Method Not Allowed and 415 Unsupported Media Type** — servant raises these
   *outside* `ErrorFormatters`, so they return an empty body. No hook exists for them.
+  (A WAI middleware can rewrite the 405 if the service cares; see the formatters
+  section of [RFC 7807 Problem Details](./rfc7807-problem-details.md#before-a-handler-runs).)
 
 One consequence worth knowing: a 405 does not consume the request body. An endpoint
 that must read a body is better modelled as a `POST` than a `DELETE`, so a
