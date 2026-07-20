@@ -90,6 +90,15 @@ in  Schema.Project::{ project =
         , location =
             Schema.DocLocation.LocalFile "cli/agents/agent-assist-commands.md"
         }
+      , Schema.DocRef::{ key = "cli-per-command-agent-config"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.User
+        , description = Some
+            "Per-command agent configuration: resolve an AI agent's provider, model, and reasoning effort per subcommand through one hierarchical, provenance-tracked precedence chain (CLI flag > env > local per-command > local default > global per-command > global default > built-in), with a read-only `agent config` inspection command; a candidate-list resolver that makes each new dial additive; and how Baikai's provider-neutral ThinkingLevel plus its single effort/thinking fields absorb every per-vendor translation so a new knob costs an afternoon"
+        , location =
+            Schema.DocLocation.LocalFile
+              "cli/agents/per-command-agent-config.md"
+        }
       , Schema.DocRef::{ key = "core-record-patterns"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
