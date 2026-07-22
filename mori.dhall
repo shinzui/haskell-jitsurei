@@ -183,7 +183,7 @@ in  Schema.Project::{ project =
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
         , description = Some
-            "Derive the OpenAPI 3.1 document from the servant route types with toOpenApi and never hand-write or hand-edit openapi.json; pin the shinzui openapi-hs/servant-openapi-hs forks because Hackage openapi3/servant-openapi3 carry no HasOpenApi instance for MultiVerb and silently drop every declared error response; emit the artifact from an executable, check it in, and enforce it in CI with git diff --exit-code"
+            "Derive the OpenAPI 3.1 document from the servant route types with toOpenApi and never hand-write or hand-edit openapi.json; use one compatible released openapi-hs/servant-openapi-hs cohort because openapi3/servant-openapi3 carry no HasOpenApi instance for MultiVerb and silently drop every declared error response; emit the artifact from an executable, check it in, and enforce it in CI with git diff --exit-code"
         , location =
             Schema.DocLocation.LocalFile "api/openapi-from-types.md"
         }
@@ -194,6 +194,38 @@ in  Schema.Project::{ project =
             "RFC 7807 (RFC 9457) problem details as the one error-body shape fleet-wide, served as application/problem+json: type pinned to about:blank, stable title per code, status/detail, plus code and retryable extension members clients branch on; a ProblemJSON content type with RespondAs for MultiVerb APIs, a single problemError renderer plus ProblemSpec catalog for ServerError-style APIs, ErrorFormatters for servant's own rejections (405 needs WAI middleware or an explicit exemption), the OAuth/probe/non-JSON exemptions, and the ToSchema-shares-the-codec-Options rule for the OpenAPI document"
         , location =
             Schema.DocLocation.LocalFile "api/rfc7807-problem-details.md"
+        }
+      , Schema.DocRef::{ key = "api-opentelemetry-integration"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "OpenTelemetry 1.0 service integration: bracket the SDK providers, run with -threaded, put WAI instrumentation outside request logging, share its tracer with keiro, and preserve trace context through the transactional outbox"
+        , location =
+            Schema.DocLocation.LocalFile "api/opentelemetry-integration.md"
+        }
+      , Schema.DocRef::{ key = "api-request-logging"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Production WAI request logging as one bounded JSON line with OpenTelemetry trace correlation, explicit health-probe exclusion, and a strict prohibition on bodies, credentials, arbitrary headers, and raw query strings"
+        , location =
+            Schema.DocLocation.LocalFile "api/request-logging.md"
+        }
+      , Schema.DocRef::{ key = "api-relay-pagination"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Relay cursor pagination with typed MultiVerb responses, fingerprinted keyset cursors, trusted SortSpec SQL, explicit OpenAPI cohort compatibility, and a mandatory six-invariant conformance test for every endpoint"
+        , location =
+            Schema.DocLocation.LocalFile "api/relay-pagination.md"
+        }
+      , Schema.DocRef::{ key = "api-health-endpoints"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Kubernetes liveness and readiness semantics for servant services: in-process liveness, dependency and subscription readiness, typed 200/503 status reports, probe-noise logging exclusion, and rollout-time configuration validation"
+        , location =
+            Schema.DocLocation.LocalFile "api/health-endpoints.md"
         }
       ]
     }

@@ -635,3 +635,12 @@ HydrationDecodeFailed e -> ServiceInternal (ErrorEnvelopeWire "decode_failed" ms
 ### Don't Reach for `OverloadedRecordDot` on a Generated Client
 
 See the pitfall above. Use qualified selector application.
+
+## Related Patterns
+
+- [Generating the OpenAPI Document from Servant Types](./openapi-from-types.md)
+- [RFC 7807 Problem Details for Error Bodies](./rfc7807-problem-details.md)
+- [OpenTelemetry Integration](./opentelemetry-integration.md)
+- [Production Request Logging](./request-logging.md)
+- [Relay Pagination](./relay-pagination.md)
+- [Kubernetes Health Endpoints](./health-endpoints.md)
