@@ -2,6 +2,13 @@
 
 A pattern for structuring CLI configuration into separate, layered Dhall files — user-wide settings, per-project identity, and per-project automation — each with its own schema, discovery logic, and validation pipeline.
 
+> **Superseded for new work.** The layered-Dhall pattern below is superseded by the
+> settei configuration standard for all new keiro-fleet CLIs and services. See the
+> `keiro-runtime-patterns` repo (mori project `shinzui/keiro-runtime-patterns`):
+> `config/settei-cli-standard.md` (DocRef `config-settei-cli-standard`) and
+> `config/settei-service-standard.md` (DocRef `config-settei-service-standard`).
+> This document remains valid for tools already built on layered Dhall.
+
 ## Problem
 
 A CLI tool that manages multi-project workflows needs configuration at multiple scopes:
