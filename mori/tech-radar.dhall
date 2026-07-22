@@ -1,9 +1,9 @@
 let Schema =
-      https://raw.githubusercontent.com/shinzui/mori-schema/f53517e1a532275569bb14a452359f11c3e02c03/package.dhall
-        sha256:3b79aae9216456678300441ca8616b64a4b4fa520a1286dfcc418f60899d5d4a
+      https://raw.githubusercontent.com/shinzui/mori-schema/a3c59033a08c2eaef2cfba4a3c99fc9c192ca6d7/package.dhall
+        sha256:18258ef583580a897f4af3e7c86db0342afb42fb40efc535b217ba1089230141
 
 let TechRadar =
-      https://raw.githubusercontent.com/shinzui/mori-schema/f53517e1a532275569bb14a452359f11c3e02c03/extensions/tech-radar/package.dhall
+      https://raw.githubusercontent.com/shinzui/mori-schema/a3c59033a08c2eaef2cfba4a3c99fc9c192ca6d7/extensions/tech-radar/package.dhall
         sha256:13ddc09176a770d63369db71987441c8be357889c3f3b67f044e855138434e80
 
 in  TechRadar.TechRadar::{ recommendations =
