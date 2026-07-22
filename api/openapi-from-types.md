@@ -15,81 +15,68 @@ its route type as `MultiVerb` response alternatives. Both feed directly into the
 you generate here.
 
 
-## Use the Forks, Not Hackage
+## Use the OpenAPI 3.1 Packages by Name
 
-Two packages are required, and **both must come from the `shinzui` forks, not Hackage**:
+Two packages are required, and both are released on Hackage:
 
 - `openapi-hs` — the OpenAPI **3.1** data model (a fork of `openapi3`, which targets 3.0).
 - `servant-openapi-hs` — derives the document from a Servant API type and tests handler
   conformance (a fork of `biocad/servant-openapi3`, retargeted at 3.1 via `openapi-hs`).
 
-The load-bearing reason is not the version bump. It is this:
+The load-bearing reason for these package names is not the version bump. It is this:
 
-> Hackage's `openapi3` and `servant-openapi3` carry **no `HasOpenApi` instance for
+> The upstream-lineage `openapi3` and `servant-openapi3` packages carry **no `HasOpenApi` instance for
 > `MultiVerb`**. `servant-openapi-hs` does.
 
-Consequently, on the Hackage packages, every error response an operation declares in its
-route type — the 400, 404, 409, 503 — is **silently absent from the generated document**.
+Consequently, with `openapi3` and `servant-openapi3`, every error response an operation
+declares in its route type — the 400, 404, 409, 503 — is **silently absent from the generated document**.
 Not a compile error. Not a warning. The document simply describes a service that only ever
 succeeds. Since the entire purpose of putting errors in the route type is that they reach
-the document and the generated client, using Hackage `servant-openapi3` quietly destroys
+the document and the generated client, using `servant-openapi3` quietly destroys
 the benefit while appearing to work.
 
-Neither fork is on Hackage. Pin them in `cabal.project`:
-
-```cabal
--- The OpenAPI toolchain, from forks rather than Hackage. Each operation declares
--- its error responses in the route type as servant MultiVerb response alternatives.
--- MultiVerb itself ships in Hackage servant 0.20.x, so servant needs no fork -- but
--- those response alternatives only reach the generated document through a HasOpenApi
--- instance for MultiVerb, which Hackage openapi3/servant-openapi3 DO NOT provide.
--- Both forks target GHC 9.12 / servant 0.20.3 and emit OpenAPI 3.1.
-source-repository-package
-  type: git
-  location: https://github.com/shinzui/openapi-hs.git
-  tag: <pin a commit>
-
-source-repository-package
-  type: git
-  location: https://github.com/shinzui/servant-openapi-hs.git
-  tag: <pin a commit>
-```
-
-And depend on them from the package that owns the route types:
+The former forks are published packages now. Depend on them normally:
 
 ```cabal
 library
   build-depends:
-    , openapi-hs
-    , servant-openapi-hs
+    , openapi-hs >= 5.0 && < 5.1
+    , servant-openapi-hs >= 5.1 && < 5.2
 ```
+
+Those were the current released versions on 2026-07-22. Treat the two libraries as a
+compatibility cohort and re-check Hackage plus the upstream release tags before changing
+bounds. In particular, `relay-pagination-servant-0.1.0.0` intentionally requires the
+older but coherent `openapi-hs >=4.1 && <4.2` / `servant-openapi-hs >=4.1 && <4.2`
+cohort. Let the consuming package's constraints select one coherent pair; do not mix
+major/minor cohorts.
 
 Note the module namespaces are unchanged from the upstream packages — you still
 `import Data.OpenApi` and `import Servant.OpenApi`. Only the package names differ.
 
-### Pin by Git URL and Tag, With One Tag Across the Cohort
+### Keep One Released Cohort
 
 Three ways to get this wrong, all of them seen in the wild.
 
-**Do not depend on the Hackage names.** A `build-depends: openapi3, servant-openapi3` with
-no `source-repository-package` stanza silently resolves to Hackage. Nothing warns you. If
-that service uses `MultiVerb`, its document is already missing every error response.
+**Do not depend on the upstream package names.** A `build-depends: openapi3,
+servant-openapi3` resolves successfully, but a service using `MultiVerb` is already
+missing every declared error response from its document.
 
-**Do not add the forks as local filesystem paths.** A `packages:` stanza naming
-`/Users/you/src/openapi-hs` builds on your laptop and nowhere else — not in CI, not for
-anyone who clones the repository. Use `source-repository-package` with a git URL.
+**Do not add local filesystem paths.** A `packages:` stanza naming
+`/Users/you/src/openapi-hs` builds on one laptop and nowhere else. Use the released
+Hackage packages. A `source-repository-package` pin is reserved for an intentional
+unreleased fix and must name immutable compatible commits for both packages.
 
-**Pin the same tag everywhere.** The two forks are coupled: `servant-openapi-hs` targets a
-specific `openapi-hs`. Different services pinning different `openapi-hs` commits will emit
-subtly different documents from equivalent types, and a shared DTO will get different
-schemas in two services' specifications. Record the pair of tags in one place and copy them
-verbatim.
+**Do not mix cohorts.** `servant-openapi-hs` targets a bounded `openapi-hs` range.
+Different services resolving different cohorts can emit subtly different documents from
+equivalent types, and a shared DTO can acquire different schemas. Record the selected
+released pair in one place and apply the same bounds across a service.
 
 Check what a repository actually resolves before trusting its document:
 
 ```bash
-grep -rn "openapi" --include="*.cabal" .   # Hackage names or fork names?
-grep -n  "openapi" cabal.project           # git stanzas, or local paths, or nothing?
+grep -rn "openapi" --include="*.cabal" .   # package names and compatible bounds?
+grep -n  "openapi" cabal.project           # unexpected git pins or local paths?
 ```
 
 
@@ -240,7 +227,7 @@ testCase "paths list exactly the served operations" $
 
 **Every operation declares its error responses.** This is the test that gives the
 `MultiVerb` convention its teeth: it fails the moment an endpoint is added without a
-response list — and it is the test that would have caught a silent switch to Hackage
+response list — and it is the test that would have caught a silent switch to
 `servant-openapi3`, where every error response vanishes at once.
 
 ```haskell
@@ -272,11 +259,11 @@ It is a build artifact. Editing it produces a document that disagrees with the s
 the disagreement survives exactly until the next `cabal run service-openapi`, at which
 point the edit is lost. If the document is wrong, the *types* are wrong. Fix them.
 
-### Don't Use Hackage `openapi3` / `servant-openapi3`
+### Don't Use `openapi3` / `servant-openapi3`
 
 They emit OpenAPI 3.0 and, decisively, carry no `HasOpenApi` instance for `MultiVerb`.
 Every declared error response disappears from the document with no error and no warning.
-Pin the `shinzui` forks.
+Use the released `openapi-hs` / `servant-openapi-hs` compatibility cohort.
 
 ### Don't Generate From a Different Type Than You Serve
 
