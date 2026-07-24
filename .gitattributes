@@ -1,0 +1,2 @@
+patterns/index.md whitespace=-blank-at-eof
+patterns/**/index.md whitespace=-blank-at-eof

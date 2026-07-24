@@ -1,0 +1,73 @@
+name: Haskell patterns OKF
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v17
+
+      - name: Validate the pattern catalog
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          base_ref=""
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base_ref="$PULL_REQUEST_BASE_SHA"
+          elif [[ "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            base_ref="$PUSH_BEFORE_SHA"
+          fi
+
+          nix_run=(
+            nix shell
+            github:shinzui/okf/v0.1.2.0#okf-cli
+            nixpkgs#dhall
+            nixpkgs#ripgrep
+            nixpkgs#ruby
+            -c
+          )
+
+          "${nix_run[@]}" dhall freeze --check okf/patterns.dhall
+          # Mori has no standalone public release; its full semantic validation
+          # remains part of the documented local update contract. CI still
+          # type-checks the manifest schema here.
+          "${nix_run[@]}" dhall type --file mori.dhall >/dev/null
+
+          "${nix_run[@]}" okf validate patterns --strict \
+            --profile okf/patterns.dhall \
+            --profile-enforce \
+            --log-enforce
+
+          "${nix_run[@]}" scripts/review-status --check
+
+          "${nix_run[@]}" okf index patterns --write >/dev/null
+          git diff --exit-code -- patterns
+
+          if [[ -n "$base_ref" ]]; then
+            log_stderr="$(mktemp)"
+            trap 'rm -f "$log_stderr"' EXIT
+            "${nix_run[@]}" okf log patterns --since "$base_ref" \
+              >/dev/null 2>"$log_stderr"
+            if "${nix_run[@]}" rg -n '^git:' "$log_stderr" >&2; then
+              printf "%s\n" \
+                "error: changed concepts require a change to their nearest log.md" \
+                >&2
+              exit 1
+            fi
+          fi

@@ -1,0 +1,178 @@
+#!/usr/bin/env ruby
+
+require "date"
+require "find"
+require "time"
+require "yaml"
+
+bundle = "patterns"
+mode = ARGV.fetch(0, "--list")
+valid_modes = ["--list", "--check", "--require-human"]
+
+unless valid_modes.include?(mode)
+  warn "usage: scripts/review-status [--list|--check|--require-human]"
+  exit 2
+end
+
+def timestamp_text(value)
+  case value
+  when Time, DateTime
+    value.iso8601
+  when Date
+    value.iso8601
+  else
+    value.to_s
+  end
+end
+
+def present?(value)
+  !value.nil? && !value.to_s.strip.empty?
+end
+
+def rfc3339?(value)
+  Time.iso8601(timestamp_text(value))
+  true
+rescue ArgumentError
+  false
+end
+
+documents = []
+errors = []
+
+Find.find(bundle) do |path|
+  next unless path.end_with?(".md")
+  next if ["index.md", "log.md"].include?(File.basename(path))
+
+  content = File.read(path)
+  match = content.match(/\A---\r?\n(.*?)\r?\n---\r?\n/m)
+  unless match
+    errors << "#{path}: missing YAML frontmatter"
+    next
+  end
+
+  begin
+    metadata =
+      YAML.safe_load(
+        match[1],
+        permitted_classes: [Date, DateTime, Time],
+        permitted_symbols: [],
+        aliases: false
+      )
+  rescue StandardError => error
+    errors << "#{path}: invalid YAML frontmatter: #{error.message}"
+    next
+  end
+
+  unless metadata.is_a?(Hash)
+    errors << "#{path}: frontmatter must be a mapping"
+    next
+  end
+
+  timestamp = timestamp_text(metadata["timestamp"])
+  errors << "#{path}: timestamp must be RFC 3339" unless rfc3339?(metadata["timestamp"])
+  reviews = metadata["reviews"]
+  unless reviews.is_a?(Array) && !reviews.empty?
+    errors << "#{path}: reviews must be a non-empty list"
+    next
+  end
+
+  current_humans = []
+  current_models = []
+  current_human_approvals = []
+  current_model_approvals = []
+  stale_count = 0
+
+  reviews.each_with_index do |review, index|
+    prefix = "#{path}: reviews[#{index}]"
+    unless review.is_a?(Hash)
+      errors << "#{prefix} must be a mapping"
+      next
+    end
+
+    kind = review["kind"]
+    reviewer = review["reviewer"]
+    reviewed_at = review["reviewed_at"]
+    document_timestamp = timestamp_text(review["document_timestamp"])
+    scope = review["scope"]
+    outcome = review["outcome"]
+
+    errors << "#{prefix}.kind must be human or model" unless ["human", "model"].include?(kind)
+    errors << "#{prefix}.reviewer is required" unless present?(reviewer)
+    errors << "#{prefix}.reviewed_at must be RFC 3339" unless rfc3339?(reviewed_at)
+    unless rfc3339?(review["document_timestamp"])
+      errors << "#{prefix}.document_timestamp must be RFC 3339"
+    end
+    errors << "#{prefix}.scope is required" unless present?(scope)
+    unless ["approved", "changes-requested", "commented"].include?(outcome)
+      errors << "#{prefix}.outcome must be approved, changes-requested, or commented"
+    end
+
+    if kind == "model"
+      errors << "#{prefix}.provider is required for a model review" unless present?(review["provider"])
+      errors << "#{prefix}.model is required for a model review" unless present?(review["model"])
+    end
+
+    if document_timestamp == timestamp
+      if kind == "human"
+        label = "#{reviewer} (#{scope}; #{outcome})"
+        current_humans << label
+        current_human_approvals << label if outcome == "approved"
+      elsif kind == "model"
+        label = "#{review["provider"]}/#{review["model"]} (#{reviewer}; #{scope}; #{outcome})"
+        current_models << label
+        current_model_approvals << label if outcome == "approved"
+      end
+    else
+      stale_count += 1
+    end
+  end
+
+  if current_human_approvals.empty? && current_model_approvals.empty?
+    errors << "#{path}: no approved review applies to current timestamp #{timestamp}"
+  end
+
+  documents << {
+    id: path.delete_prefix("#{bundle}/").delete_suffix(".md"),
+    status: metadata["status"].to_s,
+    timestamp: timestamp,
+    humans: current_humans.uniq,
+    models: current_models.uniq,
+    human_approvals: current_human_approvals.uniq,
+    stale: stale_count
+  }
+end
+
+documents.sort_by! { |document| document[:id] }
+
+if mode == "--list"
+  puts ["concept", "status", "timestamp", "human", "model", "stale"].join("\t")
+  documents.each do |document|
+    puts [
+      document[:id],
+      document[:status],
+      document[:timestamp],
+      document[:humans].empty? ? "-" : document[:humans].join(", "),
+      document[:models].empty? ? "-" : document[:models].join(", "),
+      document[:stale]
+    ].join("\t")
+  end
+end
+
+if mode == "--require-human"
+  documents.each do |document|
+    if document[:human_approvals].empty?
+      errors << "#{document[:id]}: no approved human review applies to current timestamp"
+    end
+  end
+end
+
+unless errors.empty?
+  errors.each { |error| warn "review: #{error}" }
+  exit 1
+end
+
+if mode != "--list"
+  pending_human = documents.count { |document| document[:human_approvals].empty? }
+  puts "OK review metadata: #{documents.length} concepts"
+  puts "review advisory: #{pending_human} concept(s) still need a current human review" if pending_human.positive?
+end
