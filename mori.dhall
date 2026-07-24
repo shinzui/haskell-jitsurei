@@ -250,19 +250,19 @@ in  Schema.Project::{ project =
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
         , description = Some
-            "Derive the OpenAPI 3.1 document from the servant route types with toOpenApi and never hand-write or hand-edit openapi.json; use one compatible released openapi-hs/servant-openapi-hs cohort because openapi3/servant-openapi3 carry no HasOpenApi instance for MultiVerb and silently drop every declared error response; emit the artifact from an executable, check it in, and enforce it in CI with git diff --exit-code"
+            "Derive the OpenAPI 3.1 document from the servant route types with toOpenApi and never hand-write or hand-edit openapi.json; use one compatible released openapi-hs/servant-openapi-hs cohort because openapi3/servant-openapi3 carry no HasOpenApi instance for MultiVerb so a MultiVerb API cannot derive a document from them at all; emit the artifact from an executable, check it in, and enforce it in CI with git diff --exit-code"
         , location =
             Schema.DocLocation.LocalFile
               "patterns/api/openapi-from-types.md"
         }
-      , Schema.DocRef::{ key = "api-rfc7807-problem-details"
+      , Schema.DocRef::{ key = "api-rfc9457-problem-details"
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
         , description = Some
-            "RFC 7807 (RFC 9457) problem details as the one error-body shape fleet-wide, served as application/problem+json: type pinned to about:blank, stable title per code, status/detail, plus code and retryable extension members clients branch on; a ProblemJSON content type with RespondAs for MultiVerb APIs, a single problemError renderer plus ProblemSpec catalog for ServerError-style APIs, ErrorFormatters for servant's own rejections (405 needs WAI middleware or an explicit exemption), the OAuth/probe/non-JSON exemptions, and the ToSchema-shares-the-codec-Options rule for the OpenAPI document"
+            "RFC 9457 (obsoletes RFC 7807, identical wire format) problem details as the one error-body shape fleet-wide, served as application/problem+json: type pinned to about:blank, stable title per code, status/detail, plus code and retryable extension members clients branch on; a ProblemJSON content type with RespondAs for MultiVerb APIs, a single problemError renderer plus ProblemSpec catalog for ServerError-style APIs, ErrorFormatters for servant's own rejections (405 needs WAI middleware or an explicit exemption), the OAuth/probe/non-JSON exemptions, and the ToSchema-shares-the-codec-Options rule for the OpenAPI document"
         , location =
             Schema.DocLocation.LocalFile
-              "patterns/api/rfc7807-problem-details.md"
+              "patterns/api/rfc9457-problem-details.md"
         }
       , Schema.DocRef::{ key = "api-opentelemetry-integration"
         , kind = Schema.DocKind.Cookbook

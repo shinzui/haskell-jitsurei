@@ -2,7 +2,7 @@
 type: Navigation
 title: "Find the right Haskell pattern"
 description: "Task-oriented routes into the Haskell standards, API conventions, CLI patterns, and agent guidance"
-timestamp: 2026-07-24T07:18:21-07:00
+timestamp: 2026-07-24T10:28:01-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/patterns-getting-started
 tags: [navigation, haskell, patterns, standards, discovery]
 status: current
@@ -26,7 +26,7 @@ prelude, and multiline-string patterns that apply.
 Read [Servant API patterns](api/overview.md). The usual order is:
 
 1. [Servant API Design](api/servant-routes.md) for route and response types.
-2. [RFC 7807 Problem Details](api/rfc7807-problem-details.md) for error bodies.
+2. [RFC 9457 Problem Details](api/rfc9457-problem-details.md) for error bodies.
 3. [Generating OpenAPI from Types](api/openapi-from-types.md) for the published contract.
 4. [OpenTelemetry](api/opentelemetry-integration.md) and
    [request logging](api/request-logging.md) for observability.

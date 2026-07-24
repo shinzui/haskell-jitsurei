@@ -9,6 +9,6 @@
 - [OpenTelemetry Integration for Servant Services](opentelemetry-integration.md) - Wire one OpenTelemetry SDK lifecycle through WAI, Servant, Keiro, and the outbox
 - [Relay Pagination for List Endpoints](relay-pagination.md) - Implement typed Relay cursor pagination with keyset SQL and conformance tests
 - [Production Request Logging](request-logging.md) - Emit bounded structured WAI request logs with trace correlation and strict data minimization
-- [RFC 7807 Problem Details for Error Bodies](rfc7807-problem-details.md) - Standardize Servant error responses on application/problem+json with stable extension fields
+- [RFC 9457 Problem Details for Error Bodies](rfc9457-problem-details.md) - Standardize Servant error responses on application/problem+json with stable extension fields
 - [Servant API Design](servant-routes.md) - Organize Servant APIs as vertical NamedRoutes slices with typed MultiVerb responses
 

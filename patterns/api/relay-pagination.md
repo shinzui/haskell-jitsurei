@@ -2,15 +2,15 @@
 type: Standard
 title: "Relay Pagination for List Endpoints"
 description: "Implement typed Relay cursor pagination with keyset SQL and conformance tests"
-timestamp: 2026-07-24T07:39:31-07:00
+timestamp: 2026-07-24T10:28:01-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-relay-pagination
 tags: [api, servant, relay, pagination, cursor, keyset, hasql]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T07:39:31-07:00
-    document_timestamp: 2026-07-24T07:39:31-07:00
+    reviewed_at: 2026-07-24T10:28:01-07:00
+    document_timestamp: 2026-07-24T10:28:01-07:00
     scope: technical-accuracy
     outcome: approved
     provider: anthropic
@@ -131,13 +131,13 @@ are:
 - `negative_page_size`; and
 - `page_size_too_large`.
 
-### The Recorded RFC 7807 Exemption
+### The Recorded RFC 9457 Exemption
 
 The combinator emits its own JSON `RelayPageError` before a handler runs. That released
-wire contract is a protocol-mandated exemption from the fleet's RFC 7807 default. A
+wire contract is a protocol-mandated exemption from the fleet's RFC 9457 default. A
 paginated endpoint uses `RelayPageError` for handler-detected cursor rejection too, so
 one endpoint never has two different 400 bodies. Exempt these routes by name in the
-[problem-details](./rfc7807-problem-details.md) conformance test.
+[problem-details](./rfc9457-problem-details.md) conformance test.
 
 ## Treat Cursors as Opaque, Versioned Capabilities
 
@@ -312,4 +312,4 @@ artifact generation, stable operation IDs, and document conformance tests.
 
 - [Servant API Design](./servant-routes.md)
 - [Generating the OpenAPI Document from Servant Types](./openapi-from-types.md)
-- [RFC 7807 Problem Details for Error Bodies](./rfc7807-problem-details.md)
+- [RFC 9457 Problem Details for Error Bodies](./rfc9457-problem-details.md)

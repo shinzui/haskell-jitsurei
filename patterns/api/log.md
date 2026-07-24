@@ -1,6 +1,7 @@
 # api Update Log
 
 ## 2026-07-24
+* **Rename**: The problem-details standard now targets RFC 9457 by name (obsoletes RFC 7807, identical wire format) — concept renamed to `api/rfc9457-problem-details`, all cross-references, section citations, and the mori.dhall DocRef updated; the body records the 7807 history for readers of older fleet code
 * **Consistency**: servant-routes' common stanza now lists the full Core Standards extension baseline (adds OverloadedLabels)
 * **Correction**: servant-routes — fixed the router-order claim (literals are not hoisted above sibling captures; declaration order with backtracking decides), scoped the MultiVerb rule with named exemptions (Raw, streaming, cannot-fail single-status) while keeping NamedRoutes unconditional, aligned the umbrella/health examples with the health standard, added the `-Werror=missing-fields` caveat and a UVerb note
 * **Correction**: openapi-from-types — the upstream `servant-openapi3` failure mode is a compile error (no MultiVerb instance), not silent omission; added the 4.1-cohort rule for relay consumers and the servant >= 0.20.3 gate

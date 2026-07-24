@@ -2,15 +2,15 @@
 type: Standard
 title: "Kubernetes Health Endpoints"
 description: "Separate in-process liveness from dependency-aware readiness in Servant services"
-timestamp: 2026-07-22T12:26:24-07:00
+timestamp: 2026-07-24T10:28:01-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-health-endpoints
 tags: [api, servant, kubernetes, health, liveness, readiness]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T07:39:31-07:00
-    document_timestamp: 2026-07-22T12:26:24-07:00
+    reviewed_at: 2026-07-24T10:28:01-07:00
+    document_timestamp: 2026-07-24T10:28:01-07:00
     scope: technical-accuracy
     outcome: approved
     provider: anthropic
@@ -73,7 +73,7 @@ cannot serve its contracted request semantics while that dependency is unavailab
 Mount a `HealthApi` record under `"health"` on the service's umbrella `NamedRoutes`
 record. Both operations return a small status report: 200 when the check passes, or 503
 with the failing check and the time it began failing. A probe report describes current
-system state; it is not an RFC 7807 error document. Exempt these named routes from the
+system state; it is not an RFC 9457 error document. Exempt these named routes from the
 problem-details conformance test.
 
 Use the same explicit `MultiVerb` result mapping prescribed for application routes. The
@@ -204,6 +204,6 @@ not need to become live merely to reveal that its configuration is invalid.
 ## Related Patterns
 
 - [Servant Route Standards](./servant-routes.md)
-- [RFC 7807 Problem Details for Error Bodies](./rfc7807-problem-details.md)
+- [RFC 9457 Problem Details for Error Bodies](./rfc9457-problem-details.md)
 - [Production Request Logging](./request-logging.md)
 - [OpenTelemetry Integration](./opentelemetry-integration.md)

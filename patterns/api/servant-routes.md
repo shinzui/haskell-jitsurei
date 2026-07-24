@@ -2,15 +2,15 @@
 type: Standard
 title: "Servant API Design"
 description: "Organize Servant APIs as vertical NamedRoutes slices with typed MultiVerb responses"
-timestamp: 2026-07-24T09:56:04-07:00
+timestamp: 2026-07-24T10:28:01-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-servant-routes
 tags: [api, servant, named-routes, multiverb, vertical-slices, errors]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T09:56:04-07:00
-    document_timestamp: 2026-07-24T09:56:04-07:00
+    reviewed_at: 2026-07-24T10:28:01-07:00
+    document_timestamp: 2026-07-24T10:28:01-07:00
     scope: technical-accuracy
     outcome: approved
     provider: anthropic
@@ -428,9 +428,9 @@ Declare the operation's responses as a type-level list, and give the handler a
 plain sum type that maps onto it.
 
 > **The error body is standardized separately.** The `ErrorEnvelopeWire` in the examples
-> below predates the fleet's adoption of RFC 7807; the wire shape is now a problem
-> details document served as `application/problem+json` — see [RFC 7807 Problem Details
-> for Error Bodies](./rfc7807-problem-details.md). Everything structural here (the
+> below predates the fleet's adoption of RFC 9457 problem details; the wire shape is now
+> a problem details document served as `application/problem+json` — see [RFC 9457 Problem
+> Details for Error Bodies](./rfc9457-problem-details.md). Everything structural here (the
 > response list, the result sum, `AsUnion`, `faultToResult`) applies unchanged; only the
 > payload type and the error alternatives' combinator (`RespondAs ProblemJSON` instead of
 > `Respond`) differ.
@@ -608,7 +608,7 @@ consistent:
   and the request content-type check respectively), so they return an empty body. No
   hook exists for them.
   (A WAI middleware can rewrite the 405 if the service cares; see the formatters
-  section of [RFC 7807 Problem Details](./rfc7807-problem-details.md#before-a-handler-runs).)
+  section of [RFC 9457 Problem Details](./rfc9457-problem-details.md#before-a-handler-runs).)
 
 One consequence worth knowing: a 405 does not consume the request body. An endpoint
 that must read a body is better modelled as a `POST` than a `DELETE`, so a
@@ -721,7 +721,7 @@ See the pitfall above. Use qualified selector application.
 ## Related Patterns
 
 - [Generating the OpenAPI Document from Servant Types](./openapi-from-types.md)
-- [RFC 7807 Problem Details for Error Bodies](./rfc7807-problem-details.md)
+- [RFC 9457 Problem Details for Error Bodies](./rfc9457-problem-details.md)
 - [OpenTelemetry Integration](./opentelemetry-integration.md)
 - [Production Request Logging](./request-logging.md)
 - [Relay Pagination](./relay-pagination.md)

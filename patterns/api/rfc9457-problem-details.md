@@ -1,25 +1,25 @@
 ---
 type: Standard
-title: "RFC 7807 Problem Details for Error Bodies"
+title: "RFC 9457 Problem Details for Error Bodies"
 description: "Standardize Servant error responses on application/problem+json with stable extension fields"
-timestamp: 2026-07-24T07:39:31-07:00
-resource: mori://shinzui/haskell-jitsurei/docs/api-rfc7807-problem-details
-tags: [api, servant, errors, rfc7807, rfc9457, problem-details]
+timestamp: 2026-07-24T10:28:01-07:00
+resource: mori://shinzui/haskell-jitsurei/docs/api-rfc9457-problem-details
+tags: [api, servant, errors, rfc9457, rfc7807, problem-details]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T07:39:31-07:00
-    document_timestamp: 2026-07-24T07:39:31-07:00
+    reviewed_at: 2026-07-24T10:28:01-07:00
+    document_timestamp: 2026-07-24T10:28:01-07:00
     scope: technical-accuracy
     outcome: approved
     provider: anthropic
     model: claude-fable-5
 ---
 
-# RFC 7807 Problem Details for Error Bodies
+# RFC 9457 Problem Details for Error Bodies
 
-Every error body every service returns is an **RFC 7807 problem details** document, served
+Every error body every service returns is an **RFC 9457 problem details** document, served
 as `application/problem+json`. This document defines the shape, the two ways to integrate
 it with servant (typed `MultiVerb` responses for new APIs, `ServerError` rendering for
 throw-based ones), what to convert beyond the handlers, and where the convention
@@ -34,9 +34,11 @@ shape that appears in the older documents' examples predates this convention; th
 document below supersedes it as the wire shape, and everything else in those documents
 (response lists, `AsUnion`, status choice, conformance tests) applies unchanged.
 
-A note on the name: RFC 7807 was renumbered **RFC 9457** with an identical wire format.
-We say "RFC 7807" because that is the name the services standardized on; if you are
-reading the spec, read 9457.
+A note on the name: this standard was first written against **RFC 7807**, which RFC 9457
+obsoletes with an identical wire format — 9457's changes are additive (an IANA registry
+of common problem types, guidance on multiple problems and on non-dereferenceable `type`
+URIs). Older fleet code and comments, shomei included, still say 7807; read them as
+9457. Nothing on the wire changes.
 
 Reference implementations: **shomei** (`shomei-servant/src/Shomei/Servant/Error.hs`) is
 the shipped `ServerError`-style adopter, including the formatters, the middleware, and
@@ -50,7 +52,7 @@ kotei code ships them. For working code, shomei is the only reference.
 A bespoke envelope — `{"error": msg}`, `{"code", "message"}` — costs nothing inside one
 service and compounds across a fleet: every client grows one decoder per service, every
 gateway and log pipeline grows one parser per service, and no off-the-shelf tooling
-understands any of them. RFC 7807 is the IETF's answer, and HTTP tooling increasingly
+understands any of them. RFC 9457 is the IETF's answer, and HTTP tooling increasingly
 speaks it natively. The payoff of adopting it fleet-wide is exactly one client-side
 decoder for every service's failures — and the media type `application/problem+json`
 makes an error response self-describing even out of context, in a HAR file or a log line.
@@ -84,14 +86,14 @@ extension members (the RFC explicitly permits extensions):
   role name that did not exist. This is where the old envelope's `message` goes.
 - **`code`** *(extension)* — the stable, machine-readable, `snake_case` key. **This is
   what clients branch on** — never `title` or `detail` prose. When migrating a service
-  from a pre-7807 envelope, carry the old codes forward verbatim so a client that
+  from a pre-problem-details envelope, carry the old codes forward verbatim so a client that
   switched on the old key ports by reading `code` instead (shomei did exactly this).
 - **`retryable`** *(extension)* — `True` only when retrying the *unchanged* request can
   succeed, which in practice means the 503 "a dependency is down" case. The
   500-versus-503 discipline is in [Servant API Design — Choosing
   Statuses](./servant-routes.md#choosing-statuses) and applies unchanged.
 
-**The media type is part of the contract.** RFC 7807 §3 assigns
+**The media type is part of the contract.** RFC 9457 §3 assigns
 `application/problem+json`, and every problem response must carry it in `Content-Type` —
 a problem body under plain `application/json` is the shape without the self-description,
 and generic tooling will not recognize it.
@@ -111,7 +113,7 @@ aeson `Options` value renames it on the wire. Everything hangs off that single v
 cannot disagree.
 
 ```haskell
--- | An RFC 7807 problem document. problemType is rendered as the RFC's
+-- | An RFC 9457 problem document. problemType is rendered as the RFC's
 -- "type" member (a Haskell reserved word) and is always "about:blank".
 data ProblemDetails = ProblemDetails
   { problemType :: !Text,
@@ -162,7 +164,7 @@ Define the content type once, next to `ProblemDetails`:
 ```haskell
 import Network.HTTP.Media ((//))   -- package: http-media (servant already depends on it)
 
--- | The application/problem+json content type (RFC 7807 §3).
+-- | The application/problem+json content type (RFC 9457 §3).
 data ProblemJSON
 
 instance Accept ProblemJSON where
@@ -277,7 +279,7 @@ build their `ServerError` via the catalog.
 
 ## Where "Applicable" Ends
 
-RFC 7807 is for *errors on JSON APIs*. Three exemptions recur, and each should be a
+RFC 9457 is for *errors on JSON APIs*. Three exemptions recur, and each should be a
 recorded decision rather than an accident:
 
 - **Protocol-mandated shapes win.** OAuth2's token endpoint must answer RFC 6749 §5.2's
@@ -293,7 +295,7 @@ recorded decision rather than an accident:
 ## The OpenAPI Document
 
 Everything in [Generating the OpenAPI Document](./openapi-from-types.md) applies; RFC
-7807 adds three specifics.
+9457 adds three specifics.
 
 **The schema shares the codec's `Options`.** `ProblemDetails` is the one DTO whose
 generic `ToSchema` would be wrong — its instance must bridge the same `Options` the codec
@@ -363,7 +365,7 @@ verbatim — same code, same title, no telltale `detail`.
 
 ### Don't Rename the Old Codes While Reshaping
 
-The move to RFC 7807 changes the envelope; it must not simultaneously change the
+The move to RFC 9457 changes the envelope; it must not simultaneously change the
 vocabulary. Carry existing `code` strings forward so client migration is "read `code`
 instead of `error`", not a re-mapping exercise. Rename codes, if ever, as their own
 change with their own deprecation story.

@@ -2,15 +2,15 @@
 type: Overview
 title: "Servant API patterns"
 description: "Prescriptive route, response, contract, observability, pagination, and health conventions"
-timestamp: 2026-07-24T06:57:34-07:00
+timestamp: 2026-07-24T10:28:01-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-overview
 tags: [api, servant, standards, openapi, observability]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T07:39:31-07:00
-    document_timestamp: 2026-07-24T06:57:34-07:00
+    reviewed_at: 2026-07-24T10:28:01-07:00
+    document_timestamp: 2026-07-24T10:28:01-07:00
     scope: content
     outcome: approved
     provider: anthropic
@@ -22,7 +22,7 @@ reviews:
 These are mutually reinforcing standards for production Servant services.
 
 - [Servant API Design](servant-routes.md) owns route organization and typed responses.
-- [RFC 7807 Problem Details](rfc7807-problem-details.md) owns error bodies.
+- [RFC 9457 Problem Details](rfc9457-problem-details.md) owns error bodies.
 - [Generating OpenAPI from Types](openapi-from-types.md) owns the published contract.
 - [Relay Pagination](relay-pagination.md) owns list endpoints.
 - [OpenTelemetry Integration](opentelemetry-integration.md) owns trace and metric setup.
