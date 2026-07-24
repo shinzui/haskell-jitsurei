@@ -2,10 +2,19 @@
 type: Standard
 title: "Generating the OpenAPI Document from Servant Types"
 description: "Derive OpenAPI 3.1 from Servant route types and enforce the generated artifact in CI"
-timestamp: 2026-07-22T12:26:31-07:00
+timestamp: 2026-07-24T07:39:31-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-openapi-from-types
 tags: [api, servant, openapi, openapi-3.1, multiverb, code-generation]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T07:39:31-07:00
+    document_timestamp: 2026-07-24T07:39:31-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Generating the OpenAPI Document from Servant Types
@@ -36,14 +45,16 @@ Two packages are required, and both are released on Hackage:
 The load-bearing reason for these package names is not the version bump. It is this:
 
 > The upstream-lineage `openapi3` and `servant-openapi3` packages carry **no `HasOpenApi` instance for
-> `MultiVerb`**. `servant-openapi-hs` does.
+> `MultiVerb`**. `servant-openapi-hs` does (ported from the unmerged upstream PR
+> biocad/servant-openapi3#59, and gated on `servant >= 0.20.3`).
 
-Consequently, with `openapi3` and `servant-openapi3`, every error response an operation
-declares in its route type — the 400, 404, 409, 503 — is **silently absent from the generated document**.
-Not a compile error. Not a warning. The document simply describes a service that only ever
-succeeds. Since the entire purpose of putting errors in the route type is that they reach
-the document and the generated client, using `servant-openapi3` quietly destroys
-the benefit while appearing to work.
+Consequently, with `openapi3` and `servant-openapi3`, an API whose routes use
+`MultiVerb` cannot derive a document at all — `toOpenApi` fails to typecheck with a
+missing-instance error naming `MultiVerb`. That failure is loud; the quiet hazard is
+the tempting "fixes": hand-writing the document, or flattening routes back to plain
+`Verb`s so the generator compiles again. Both discard exactly the property this
+standard exists for — that every declared error status reaches the published contract.
+Use the packages that can describe the routes as written.
 
 The former forks are published packages now. Depend on them normally:
 
@@ -54,12 +65,14 @@ library
     , servant-openapi-hs >= 5.1 && < 5.2
 ```
 
-Those were the current released versions on 2026-07-22. Treat the two libraries as a
-compatibility cohort and re-check Hackage plus the upstream release tags before changing
-bounds. In particular, `relay-pagination-servant-0.1.0.0` intentionally requires the
-older but coherent `openapi-hs >=4.1 && <4.2` / `servant-openapi-hs >=4.1 && <4.2`
-cohort. Let the consuming package's constraints select one coherent pair; do not mix
-major/minor cohorts.
+Those were the current released versions on 2026-07-22, re-verified on Hackage on
+2026-07-24. Treat the two libraries as a compatibility cohort and re-check Hackage plus
+the upstream release tags before changing bounds. One decision rule matters here:
+`relay-pagination-servant-0.1.0.0` intentionally requires the older but coherent
+`openapi-hs >=4.1 && <4.2` / `servant-openapi-hs >=4.1 && <4.2` cohort, so **a service
+with any Relay-paginated endpoint uses the 4.1 cohort throughout** until a relay
+release widens its bounds. The 5.x bounds above are for services with no relay
+dependency. Never mix cohorts within one service.
 
 Note the module namespaces are unchanged from the upstream packages — you still
 `import Data.OpenApi` and `import Servant.OpenApi`. Only the package names differ.
@@ -236,9 +249,11 @@ testCase "paths list exactly the served operations" $
 ```
 
 **Every operation declares its error responses.** This is the test that gives the
-`MultiVerb` convention its teeth: it fails the moment an endpoint is added without a
-response list — and it is the test that would have caught a silent switch to
-`servant-openapi3`, where every error response vanishes at once.
+`MultiVerb` convention its teeth: it fails the moment an endpoint is added with a
+success-only `Verb` and no response list. Exempt by name the deliberate cannot-fail
+endpoints allowed by [Servant API Design's scope
+rule](./servant-routes.md#scope-which-endpoints-get-multiverb), so the exemption list
+doubles as the inventory of them.
 
 ```haskell
 testCase "every operation declares its error responses" $
@@ -271,9 +286,10 @@ point the edit is lost. If the document is wrong, the *types* are wrong. Fix the
 
 ### Don't Use `openapi3` / `servant-openapi3`
 
-They emit OpenAPI 3.0 and, decisively, carry no `HasOpenApi` instance for `MultiVerb`.
-Every declared error response disappears from the document with no error and no warning.
-Use the released `openapi-hs` / `servant-openapi-hs` compatibility cohort.
+Never, in any service. They emit OpenAPI 3.0 and, decisively, carry no `HasOpenApi`
+instance for `MultiVerb`, so a `MultiVerb` API cannot derive a document from them at
+all. The released `openapi-hs` / `servant-openapi-hs` compatibility cohort is the only
+pair of OpenAPI packages the fleet depends on.
 
 ### Don't Generate From a Different Type Than You Serve
 

@@ -2,10 +2,19 @@
 type: Standard
 title: "OpenTelemetry Integration for Servant Services"
 description: "Wire one OpenTelemetry SDK lifecycle through WAI, Servant, Keiro, and the outbox"
-timestamp: 2026-07-22T12:26:07-07:00
+timestamp: 2026-07-24T07:39:31-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-opentelemetry-integration
 tags: [api, servant, opentelemetry, tracing, metrics, wai, keiro]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T07:39:31-07:00
+    document_timestamp: 2026-07-24T07:39:31-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # OpenTelemetry Integration for Servant Services
@@ -70,7 +79,7 @@ main =
       $ \_ -> do
         let tracer = OTel.makeTracer provider instrumentationLibrary OTel.tracerOptions
         otelMiddleware <- newOpenTelemetryWaiMiddleware
-        Warp.run 8080 (otelMiddleware (requestLogMiddleware (serviceApp tracer)))
+        Warp.run 8080 (otelMiddleware (requestLogMiddleware defaultRequestLogPredicate (serviceApp tracer)))
   where
     flushAndShutdown provider =
       void (OTel.forceFlushTracerProvider provider Nothing)
@@ -125,23 +134,23 @@ env:
 choose whether to initialize telemetry at all, but `OTEL_SDK_DISABLED` wins when both are
 present, as `HospitalCapacity.Telemetry.telemetryConfigFromEnvironment` demonstrates.
 
-HTTP OTLP has two different endpoint contracts in 1.0.0.0:
-
-- `OTEL_EXPORTER_OTLP_ENDPOINT` is a base URL. The exporter appends `/v1/traces`,
-  `/v1/metrics`, or `/v1/logs` for the selected signal.
-- `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is a complete per-signal URL and is used as-is.
-  For HTTP/protobuf it therefore normally ends in `/v1/traces`.
+Configure the endpoint through the base variable only. The OTLP specification says a
+per-signal variable such as `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is a complete URL used
+as-is, but the released 1.0.0.0 HTTP exporters do not implement that: the span exporter
+appends `/v1/traces` to whichever variable it reads, and the metric and log exporters
+append their suffix unless the URL already contains `/v1/`. A spec-shaped traces value
+ending in `/v1/traces` therefore posts to `/v1/traces/v1/traces` and exports nothing.
 
 ```text
-# CORRECT: generic base URL
+# CORRECT: base URL; the exporter appends /v1/traces, /v1/metrics, /v1/logs
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
 
-# CORRECT: complete per-signal URL
+# WRONG in 1.0.0.0: the trace exporter appends /v1/traces again
 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
-
-# WRONG: the per-signal value omits the path; no suffix is added
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318
 ```
+
+Avoid the per-signal variables in this cohort, and re-verify the appending behavior
+against the exporter source before trusting them after an upgrade.
 
 ## Put the OpenTelemetry Middleware Outermost
 
@@ -165,10 +174,10 @@ Middleware composition is outside-in, so the tracing wrapper must be leftmost:
 
 ```haskell
 -- CORRECT: the logger and servant handlers run with the server span attached.
-otelMiddleware (requestLogMiddleware (serviceApp tracer))
+otelMiddleware (requestLogMiddleware defaultRequestLogPredicate (serviceApp tracer))
 
 -- WRONG: request logging runs before a server span exists and cannot correlate.
-requestLogMiddleware (otelMiddleware (serviceApp tracer))
+requestLogMiddleware defaultRequestLogPredicate (otelMiddleware (serviceApp tracer))
 ```
 
 Set `OTEL_SEMCONV_STABILITY_OPT_IN=http`. The released middleware still defaults to the

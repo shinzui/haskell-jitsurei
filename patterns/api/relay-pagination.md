@@ -2,22 +2,60 @@
 type: Standard
 title: "Relay Pagination for List Endpoints"
 description: "Implement typed Relay cursor pagination with keyset SQL and conformance tests"
-timestamp: 2026-07-22T12:26:17-07:00
+timestamp: 2026-07-24T07:39:31-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-relay-pagination
 tags: [api, servant, relay, pagination, cursor, keyset, hasql]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T07:39:31-07:00
+    document_timestamp: 2026-07-24T07:39:31-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Relay Pagination for List Endpoints
 
-**Every list endpoint uses `RelayPage`, returns a `Connection` on 200 and a
-`RelayPageError` on 400 through `MultiVerb`, executes a `SortSpec` keyset query, and
-ships a conformance test proving that no row is skipped or duplicated.** Offset/limit is
-not an accepted production pagination contract.
+**Every list endpoint over an unbounded collection uses `RelayPage`, returns a
+`Connection` on 200 and a `RelayPageError` on 400 through `MultiVerb`, executes a
+`SortSpec` keyset query, and ships a conformance test proving that no row is skipped or
+duplicated.** Offset/limit is not an accepted production pagination contract — if an
+endpoint paginates at all, it paginates this way. The only endpoints allowed to skip
+pagination entirely are the bounded snapshots defined in
+[When a Plain List Is Allowed](#when-a-plain-list-is-allowed).
 
 This standard was verified against the four `relay-pagination` 0.1.0.0 packages, their
 upstream `v0.1.0.0` tag, and their Hackage releases on 2026-07-22. Re-check Hackage and
 upstream tags before changing bounds.
+
+## When a Plain List Is Allowed
+
+Pagination is for collections that grow. An endpoint may return a plain list — no
+`RelayPage`, no `Connection` — only when all three hold:
+
+1. **The collection is bounded by design, not by observation.** Its size has a hard
+   domain limit (enum-like reference data: roles, plan tiers, supported currencies)
+   that does not grow with tenants, users, or time. "Currently small" is an
+   observation, not a bound.
+2. **The whole set is the unit of consumption.** Clients need every element to do
+   anything useful, so a partial page has no meaning.
+3. **The bound is stated in the contract.** The route's OpenAPI description names the
+   maximum cardinality, so a reviewer can see why the endpoint is exempt.
+
+Batch lookups qualify through the request instead: an endpoint answering `?ids=a,b,c`
+returns at most as many rows as ids requested, provided validation caps the id count.
+Document that cap the same way.
+
+Everything else — anything tenant-scoped, user-generated, or time-accumulating —
+paginates from its first release. **When in doubt, paginate**: retrofitting a
+`Connection` onto a shipped plain-list endpoint is a breaking change, while an
+unnecessary `Connection` costs one wrapper. A plain-list exemption never licenses
+offset/limit; an endpoint that outgrows its bound migrates to `RelayPage`, not to
+`?page=`. The conformance suite below applies to paginated endpoints; a plain-list
+endpoint instead gets an ordinary handler test pinning its canonical order.
 
 ## Use All Four Packages for Their Separate Jobs
 

@@ -2,10 +2,19 @@
 type: Standard
 title: "Servant API Design"
 description: "Organize Servant APIs as vertical NamedRoutes slices with typed MultiVerb responses"
-timestamp: 2026-07-22T12:26:36-07:00
+timestamp: 2026-07-24T07:39:31-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-servant-routes
 tags: [api, servant, named-routes, multiverb, vertical-slices, errors]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T07:39:31-07:00
+    document_timestamp: 2026-07-24T07:39:31-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Servant API Design
@@ -16,7 +25,10 @@ carry most of the weight:
 1. **Define the API as a `NamedRoutes` record**, never as a positional `:<|>` chain.
 2. **Make every terminal verb a `MultiVerb`** whose response list declares the
    operation's error statuses, so errors are values in the type rather than
-   exceptions thrown past it.
+   exceptions thrown past it. The narrow exemptions — `Raw` routes, streaming,
+   and cannot-fail single-status endpoints — are listed under
+   [Scope](#scope-which-endpoints-get-multiverb); everything else gets the
+   full response list.
 
 The two are orthogonal — `MultiVerb` works inside a `:<|>` chain, and a `NamedRoutes`
 record works with plain `Verb`s — but new APIs should use both.
@@ -56,9 +68,9 @@ route (or one mounted sub-API), joined to its type with `:-`.
 import Servant.API
 import Servant.API.Generic (type (:-))
 
-data HealthApi mode = HealthApi
-  { live :: mode :- Get '[PlainText] Text,
-    db :: mode :- "db" :> Get '[JSON] Value
+data BuildInfoApi mode = BuildInfoApi
+  { version :: mode :- Get '[PlainText] Text,
+    revision :: mode :- "revision" :> Get '[JSON] Value
   }
   deriving stock (Generic)
 ```
@@ -127,7 +139,8 @@ same prefix* — each owned by a different module:
 
 ```haskell
 data ServiceApi mode = ServiceApi
-  { status :: mode :- "service-status" :> Get '[PlainText] Text,
+  { -- Cannot-fail, in-process, single-status: exempt from the MultiVerb rule (see Scope).
+    status :: mode :- "service-status" :> Get '[PlainText] Text,
     -- Six independently-owned sub-records, all mounted under /v1/actors.
     -- They come from five different slices; none of them knows about the others.
     actors :: mode :- "v1" :> "actors" :> NamedRoutes ActorRegistryRoutes,
@@ -148,9 +161,12 @@ This lets the route tree follow the *module* structure rather than the URL
 structure.
 
 **Growth is additive and checked.** Adding a route to a record adds a field, which
-breaks the server record construction until a handler exists for it. Adding a
-route to a `:<|>` chain in the wrong position silently shifts every handler after
-it. Keep the record shape stable and additions stay purely additive.
+breaks the server record construction until a handler exists for it — provided the
+build treats `-Wmissing-fields` as fatal. A missing field in a record construction
+is a *warning* by default; enable `-Werror=missing-fields` (or a blanket `-Werror`)
+or this guarantee is only a diagnostic. Adding a route to a `:<|>` chain in the
+wrong position silently shifts every handler after it. Keep the record shape stable
+and additions stay purely additive.
 
 **Unbuilt routes can be reserved.** Park a not-yet-implemented family as an
 `EmptyAPI` field, which serves 404 until replaced:
@@ -200,16 +216,32 @@ Write this test *before* converting a chain to a record. It is the only thing th
 protects the conversion, and it is the acceptance criterion that the conversion preserved
 behavior.
 
-### Field Order Is Not Load-Bearing
+### Field Order Can Be Load-Bearing: Literals Before Captures
 
-A chain must sometimes be ordered by hand: a literal segment like `by-handle` placed after
-a sibling `Capture "id" PrincipalId` risks the literal being offered to the capture's
-parser. It is tempting to assume a record inherits that constraint through its field order.
+A record does not free you from thinking about sibling order. Servant's router merges
+same-kind siblings (literal with literal, capture with capture) but never hoists a
+literal above a sibling `Capture` — `Servant.Server.Internal.Router.choice` has no
+static-over-capture case. Alternatives are tried in declaration order, moving to the
+next one only when the current one fails *recoverably*.
 
-It does not. Servant's router hoists a literal path segment above the sibling `Capture` it
-shadows, independent of declaration order. Reordering the fields of a route record does not
-change which route a path reaches. Verify it once in your own service rather than trusting
-either claim — a dispatch test over the literal and the capture settles it.
+In practice, order matters exactly when the capture's parser accepts the literal. A
+typed capture — `Capture "id" PrincipalId` whose `FromHttpApiData` rejects
+`by-handle` — fails recoverably and routing backtracks to the literal sibling, so
+either order works. A permissive capture declared first swallows a same-arity literal
+silently:
+
+```haskell
+data Routes mode = Routes
+  { byId :: mode :- Capture "id" Text :> Get '[JSON] PrincipalView,  -- tried first
+    me :: mode :- "me" :> Get '[JSON] PrincipalView                  -- never reached
+  }
+  deriving stock (Generic)
+```
+
+`GET /me` parses `"me"` as the capture's `Text` and the `me` route is dead. Two rules
+follow: declare literal siblings before a same-arity capture, and give captures typed
+parsers that cannot accept the literals. The dispatch test above pins the behavior
+either way — write it whenever a literal and a capture share a prefix.
 
 ### Auth Goes on the Field, Not the Record
 
@@ -333,9 +365,10 @@ The umbrella record then stays thin: a health check and one field per aggregate,
 mounting a record the aggregate owns.
 
 ```haskell
--- The umbrella record: health, plus one field per aggregate.
+-- The umbrella record: health, plus one field per aggregate. The probe sub-API
+-- is the one prescribed by Kubernetes Health Endpoints, mounted as a record.
 data RootApi mode = RootApi
-  { health :: mode :- "health" :> Get '[PlainText] Text,
+  { health :: mode :- "health" :> NamedRoutes HealthApi,
     conversations :: mode :- "conversations" :> NamedRoutes ConversationsAPI
   }
   deriving stock (Generic)
@@ -354,8 +387,39 @@ rather than of the contract.
 Declaring the statuses in the type is only half of it — the document must be *derived*
 from that type for them to surface. See [Generating the OpenAPI Document from Servant
 Types](./openapi-from-types.md), and note that Hackage's `servant-openapi3` carries no
-`HasOpenApi` instance for `MultiVerb`: on those packages every response list below is
-silently dropped from the generated document.
+`HasOpenApi` instance for `MultiVerb` at all: against those packages a `MultiVerb` API
+has no derivable document — `toOpenApi` does not typecheck. The released `openapi-hs` /
+`servant-openapi-hs` cohort supplies the instance.
+
+### Scope: Which Endpoints Get MultiVerb
+
+The rule is really about contracts, not the combinator: **every status an operation
+can actually answer belongs in its route type.** For a JSON operation that means
+`MultiVerb`, and nearly every operation qualifies — any handler that touches the
+store or a downstream dependency already owns the 503 arm, and most own a 404 or 422
+besides. Do not talk yourself out of the response list because an endpoint "cannot
+fail"; check its fault type first.
+
+Three genuine exemptions exist, and each is recorded, not silent:
+
+- **Cannot-fail, in-process, single-status endpoints** — a plain-text build-info or
+  service-status route that consults nothing outside the process. A one-alternative
+  `MultiVerb` adds machinery without adding contract; a plain `Verb` is correct.
+  Exempt the route by name in the errors-declared conformance test of
+  [Generating the OpenAPI Document](./openapi-from-types.md).
+- **`Raw` routes** — WebSocket upgrades, reverse proxies, embedded static assets. A
+  `Raw` route hands the request to a WAI `Application`; it has no response list and
+  cannot be a `MultiVerb` alternative.
+- **Streaming responses** — `MultiVerb` ships `RespondStreaming`, but servant-client
+  currently buffers the whole body when unrendering it. A plain `Stream` verb remains
+  the simpler, better-supported choice for an endpoint whose point is the stream.
+
+Paginated list endpoints are not an exemption: their response list is prescribed by
+[Relay Pagination](./relay-pagination.md) (200 `Connection`, 400 `RelayPageError`).
+
+None of this loosens Rule 1. `NamedRoutes` is unconditional — it is what vertical
+slices hang off — and an exempt route (a plain `Verb`, a `Raw` mount, a `Stream`) is
+still a named field on its slice's record.
 
 ### The Shape
 
@@ -414,6 +478,11 @@ Used in a route:
 A 204 uses `RespondEmpty` and `a ~ ()`; a 201 differs only in the success status,
 so the tail is factored into `OkResponses` / `CreatedResponses` / `NoContentResponses`
 aliases sharing one error suffix.
+
+Servant also ships `UVerb`, an older multi-status mechanism. Prefer `MultiVerb`:
+`UVerb` hangs each status off the payload type through `HasStatus` and cannot vary
+description, headers, or content type per alternative, while `MultiVerb` keeps all of
+that in the response list and maps it onto a plain domain sum through `AsUnion`.
 
 ### Write `AsUnion` by Hand
 
@@ -533,8 +602,10 @@ consistent:
 
 - **Authentication and rate-limit rejections** — raised by combinators or WAI
   middleware, upstream of the handler.
-- **405 Method Not Allowed and 415 Unsupported Media Type** — servant raises these
-  *outside* `ErrorFormatters`, so they return an empty body. No hook exists for them.
+- **405 Method Not Allowed, 406 Not Acceptable, and 415 Unsupported Media Type** —
+  servant raises these *outside* `ErrorFormatters` (in `methodCheck`, `acceptCheck`,
+  and the request content-type check respectively), so they return an empty body. No
+  hook exists for them.
   (A WAI middleware can rewrite the 405 if the service cares; see the formatters
   section of [RFC 7807 Problem Details](./rfc7807-problem-details.md#before-a-handler-runs).)
 

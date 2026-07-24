@@ -6,6 +6,15 @@ timestamp: 2026-07-22T12:26:12-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-request-logging
 tags: [api, wai, logging, opentelemetry, security, observability]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T07:39:31-07:00
+    document_timestamp: 2026-07-22T12:26:12-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Production Request Logging

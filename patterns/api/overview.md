@@ -6,6 +6,15 @@ timestamp: 2026-07-24T06:57:34-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-overview
 tags: [api, servant, standards, openapi, observability]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T07:39:31-07:00
+    document_timestamp: 2026-07-24T06:57:34-07:00
+    scope: content
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Servant API patterns

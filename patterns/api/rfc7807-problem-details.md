@@ -2,10 +2,19 @@
 type: Standard
 title: "RFC 7807 Problem Details for Error Bodies"
 description: "Standardize Servant error responses on application/problem+json with stable extension fields"
-timestamp: 2026-07-16T07:06:26-07:00
+timestamp: 2026-07-24T07:39:31-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-rfc7807-problem-details
 tags: [api, servant, errors, rfc7807, rfc9457, problem-details]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T07:39:31-07:00
+    document_timestamp: 2026-07-24T07:39:31-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # RFC 7807 Problem Details for Error Bodies
@@ -32,8 +41,9 @@ reading the spec, read 9457.
 Reference implementations: **shomei** (`shomei-servant/src/Shomei/Servant/Error.hs`) is
 the shipped `ServerError`-style adopter, including the formatters, the middleware, and
 the catalog pattern; **kotei** (ExecPlan 46 in the kotei repository) is the `MultiVerb`-
-style adoption, including the `RespondAs` mechanics verified against the servant 0.20
-source.
+style adoption *as a design plan* — its `RespondAs` mechanics were verified against the
+servant 0.20 source, but as of 2026-07-24 the plan's milestones are unimplemented and no
+kotei code ships them. For working code, shomei is the only reference.
 
 ## Why a Standard Shape
 
@@ -254,9 +264,11 @@ serviceErrorFormatters =
 **405 is not reachable from `ErrorFormatters`.** A method mismatch raises a hardcoded
 empty `err405` inside `Servant.Server.Internal.methodCheck` — none of the four hooks see
 it. Shomei converts it with a WAI middleware (`Shomei.Servant.Middleware`) that rewrites
-empty-bodied 405s into problem documents; a service may instead accept the empty 405 as a
-documented limitation (kotei does — a 405 on its surface is a misconfigured client, not a
-contract answer). Decide explicitly and record which; do not discover it in production.
+every 405 into a problem document — unconditionally, which is safe there because no
+shomei handler emits a 405 of its own; a service may instead accept the empty 405 as a
+documented limitation (kotei's plan does — a 405 on its surface is a misconfigured
+client, not a contract answer). Decide explicitly and record which; do not discover it
+in production.
 
 **Combinator and middleware rejections.** Auth combinators and rate limiters answer
 upstream of the handler too. Whatever raises the 401/403/429 must render through the same
@@ -295,10 +307,10 @@ instance ToSchema ProblemDetails where
 The `validateToJSON` conformance test then proves codec and schema agree, same as for any
 DTO.
 
-**The media type reaches the document for free.** The pinned `servant-openapi-hs` fork
-has `IsSwaggerResponse (RespondAs (ct :: Type) s desc a)` requiring `Accept ct`, so a
-`RespondAs ProblemJSON …` alternative appears in the document with its content keyed by
-`application/problem+json`.
+**The media type reaches the document for free.** The released `servant-openapi-hs`
+cohort has `IsSwaggerResponse (RespondAs (ct :: Type) s desc a)` requiring `Accept ct`,
+so a `RespondAs ProblemJSON …` alternative appears in the document with its content
+keyed by `application/problem+json`.
 
 **Pin it in the conformance test.** Extend the "every operation declares its error
 responses" test to also assert each error response's `content` is keyed by
