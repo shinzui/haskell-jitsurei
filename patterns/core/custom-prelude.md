@@ -6,15 +6,6 @@ timestamp: 2026-06-19T08:57:05-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/core-custom-prelude
 tags: [core, haskell, prelude, imports, generic-lens]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-06-19T08:57:05-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Custom Prelude Pattern

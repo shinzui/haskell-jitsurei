@@ -6,15 +6,6 @@ timestamp: 2026-03-09T08:00:34-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-stdin-integration
 tags: [cli, stdin, piping, editor, input]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-03-09T08:00:34-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Stdin Integration for CLI Commands

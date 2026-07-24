@@ -2,27 +2,19 @@
 type: Standard
 title: "Review and Change Provenance"
 description: "Record material changes and timestamp-bound human and model reviews for every pattern"
-timestamp: 2026-07-24T06:57:34-07:00
+timestamp: 2026-07-24T07:18:21-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/governance-review-policy
 tags: [governance, review, provenance, changelog, agents, okf]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-07-24T06:57:34-07:00
-    scope: content-and-metadata
-    outcome: approved
 ---
 
 # Review and Change Provenance
 
-Every concept keeps content history in Git, change summaries in the nearest
-`log.md`, and review provenance in its `reviews` frontmatter list. A review is
-valid for exactly the `document_timestamp` it names; after a material change,
-old review records remain as history but are reported as stale.
+Every concept keeps content history in Git and change summaries in the nearest
+`log.md`. When an actual review occurs, its provenance belongs in an optional
+`reviews` frontmatter list. A review is valid for exactly the
+`document_timestamp` it names; after a material change, old review records
+remain as history but are reported as stale.
 
 ## Material changes
 
@@ -31,7 +23,7 @@ or the route by which a reader selects the pattern. For every material change:
 
 1. Set `timestamp` to the change time in RFC 3339 form.
 2. Add a concise entry to the nearest enclosing `log.md`.
-3. Keep old review records and append new reviews after the change is reviewed.
+3. Keep old review records and append a new record only after an actual review.
 4. Regenerate the OKF indexes.
 5. Run `mori validate`.
 6. Run `okf validate patterns --strict --profile okf/patterns.dhall
@@ -43,7 +35,12 @@ still belong in Git history.
 
 ## Review record
 
-Each entry in `reviews` has this common shape:
+Do not add a review record merely because a document was authored, migrated,
+indexed, or accepted by automated validation. A self-authored change is not an
+independent review. It is valid for `reviews` to be absent or empty; the review
+report will show that no review of each missing class is recorded.
+
+Each actual review entry has this common shape:
 
 ```yaml
 - kind: human | model
@@ -77,10 +74,10 @@ Run `scripts/review-status` to list current human reviewers, current
 as `-`, so “not reviewed” is explicit rather than silently absent.
 
 `okf validate` owns bundle, profile, link, and log validation. The review-status
-check only handles the richer structure inside the OKF `reviews` extension:
-well-formed records and at least one review tied to the current document
-timestamp. It does not pretend that the initial corpus has already received
-human review. For a release or other high-trust checkpoint, run:
+check validates the richer structure inside the optional OKF `reviews`
+extension when records exist. Missing reviews remain explicitly visible rather
+than being fabricated or treated as malformed documents. For a release or
+other high-trust checkpoint, run:
 
 ```sh
 scripts/review-status --require-human

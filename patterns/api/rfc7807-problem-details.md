@@ -6,15 +6,6 @@ timestamp: 2026-07-16T07:06:26-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-rfc7807-problem-details
 tags: [api, servant, errors, rfc7807, rfc9457, problem-details]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-07-16T07:06:26-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # RFC 7807 Problem Details for Error Bodies

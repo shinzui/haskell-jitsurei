@@ -6,15 +6,6 @@ timestamp: 2026-05-15T09:45:12-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-claude-cli-pitfalls
 tags: [cli, agents, claude, subprocess, add-dir, testing]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-05-15T09:45:12-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Pitfalls: Invoking the `claude` CLI as a Subprocess

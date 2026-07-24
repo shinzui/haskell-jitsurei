@@ -6,15 +6,6 @@ timestamp: 2026-03-26T14:54:50-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/core-multiline-strings
 tags: [core, haskell, ghc-9.12, multiline-strings, text]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-03-26T14:54:50-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Multiline String Literals

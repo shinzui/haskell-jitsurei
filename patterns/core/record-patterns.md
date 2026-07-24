@@ -6,15 +6,6 @@ timestamp: 2026-06-27T14:01:59-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/core-record-patterns
 tags: [core, haskell, records, generic-lens, overloaded-labels]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-06-27T14:01:59-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Record Patterns

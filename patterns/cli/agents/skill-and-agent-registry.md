@@ -6,15 +6,6 @@ timestamp: 2026-06-12T15:47:13-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-skill-and-agent-registry
 tags: [cli, agents, skills, registry, kit, distribution]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-06-12T15:47:13-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Pattern: Skill & Agent Registry (Kit)

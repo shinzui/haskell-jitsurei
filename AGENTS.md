@@ -24,7 +24,7 @@ tasks with `patterns/getting-started.md`.
 When materially changing a concept under `patterns/`:
 
 1. Update its RFC 3339 `timestamp`.
-2. Preserve old `reviews` entries and append reviews tied to the new timestamp.
+2. Preserve old `reviews` entries and add a record only after an actual review.
 3. Add a concise entry to the nearest enclosing `log.md`.
 4. Regenerate indexes with `okf index patterns --write`.
 5. Run `mori validate`.
@@ -34,7 +34,8 @@ When materially changing a concept under `patterns/`:
 
 Review entries follow `patterns/governance/review-policy.md`. A model review
 must record provider and model; a human review must record a durable human
-identity. Always record scope so a metadata review cannot be read as technical
+identity. Never record authorship, migration, or automated validation as a
+review. Always record scope so a metadata review cannot be read as technical
 approval.
 
 Generated `index.md` files are owned by OKF and must not be edited by hand.

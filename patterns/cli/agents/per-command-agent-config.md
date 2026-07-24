@@ -6,15 +6,6 @@ timestamp: 2026-07-20T12:23:48-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-per-command-agent-config
 tags: [cli, agents, provider, model, reasoning, configuration, baikai]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-07-20T12:23:48-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Per-Command Agent Configuration (Provider, Model, Reasoning Effort)

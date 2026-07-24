@@ -6,15 +6,6 @@ timestamp: 2026-05-15T15:45:56-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/core-standards
 tags: [core, haskell, ghc-9.12, ghc2024, cabal, standards]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-05-15T15:45:56-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Haskell Core Standards

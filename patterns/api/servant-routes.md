@@ -6,15 +6,6 @@ timestamp: 2026-07-22T12:26:36-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-servant-routes
 tags: [api, servant, named-routes, multiverb, vertical-slices, errors]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-07-22T12:26:36-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Servant API Design

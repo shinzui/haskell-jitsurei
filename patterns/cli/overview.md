@@ -6,15 +6,6 @@ timestamp: 2026-07-24T06:57:34-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-overview
 tags: [cli, haskell, patterns, optparse-applicative, agents]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-07-24T06:57:34-07:00
-    scope: content-and-metadata
-    outcome: approved
 ---
 
 # Haskell CLI patterns

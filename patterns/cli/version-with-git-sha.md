@@ -6,15 +6,6 @@ timestamp: 2026-03-09T07:57:42-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-version-git-sha
 tags: [cli, version, git, cabal, nix, template-haskell]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-03-09T07:57:42-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Embedding Git SHA in CLI Version Output

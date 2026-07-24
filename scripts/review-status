@@ -70,9 +70,9 @@ Find.find(bundle) do |path|
 
   timestamp = timestamp_text(metadata["timestamp"])
   errors << "#{path}: timestamp must be RFC 3339" unless rfc3339?(metadata["timestamp"])
-  reviews = metadata["reviews"]
-  unless reviews.is_a?(Array) && !reviews.empty?
-    errors << "#{path}: reviews must be a non-empty list"
+  reviews = metadata.fetch("reviews", [])
+  unless reviews.is_a?(Array)
+    errors << "#{path}: reviews must be a list when present"
     next
   end
 
@@ -127,10 +127,6 @@ Find.find(bundle) do |path|
     end
   end
 
-  if current_human_approvals.empty? && current_model_approvals.empty?
-    errors << "#{path}: no approved review applies to current timestamp #{timestamp}"
-  end
-
   documents << {
     id: path.delete_prefix("#{bundle}/").delete_suffix(".md"),
     status: metadata["status"].to_s,
@@ -138,6 +134,7 @@ Find.find(bundle) do |path|
     humans: current_humans.uniq,
     models: current_models.uniq,
     human_approvals: current_human_approvals.uniq,
+    model_approvals: current_model_approvals.uniq,
     stale: stale_count
   }
 end
@@ -173,6 +170,8 @@ end
 
 if mode != "--list"
   pending_human = documents.count { |document| document[:human_approvals].empty? }
+  pending_model = documents.count { |document| document[:model_approvals].empty? }
   puts "OK review metadata: #{documents.length} concepts"
-  puts "review advisory: #{pending_human} concept(s) still need a current human review" if pending_human.positive?
+  puts "review status: #{pending_human} concept(s) have no current human review" if pending_human.positive?
+  puts "review status: #{pending_model} concept(s) have no current model review" if pending_model.positive?
 end

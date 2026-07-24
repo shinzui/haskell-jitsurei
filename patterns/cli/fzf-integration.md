@@ -6,15 +6,6 @@ timestamp: 2026-03-12T11:11:43-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-fzf-integration
 tags: [cli, fzf, interactive, selection, process]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-03-12T11:11:43-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # FZF Integration for Interactive CLI Selection

@@ -6,15 +6,6 @@ timestamp: 2026-07-22T12:26:12-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-request-logging
 tags: [api, wai, logging, opentelemetry, security, observability]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-07-22T12:26:12-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Production Request Logging

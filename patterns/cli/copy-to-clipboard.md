@@ -6,15 +6,6 @@ timestamp: 2026-04-22T11:53:13-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-copy-to-clipboard
 tags: [cli, clipboard, stdout, macos, linux, process]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-04-22T11:53:13-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Copy Command Result to System Clipboard

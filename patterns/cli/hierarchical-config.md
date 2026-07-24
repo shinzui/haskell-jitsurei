@@ -6,15 +6,6 @@ timestamp: 2026-07-22T12:43:31-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-hierarchical-config
 tags: [cli, configuration, dhall, layering, legacy, settei]
 status: legacy
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-07-22T12:43:31-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Hierarchical Config with Dhall

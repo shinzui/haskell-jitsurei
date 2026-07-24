@@ -6,15 +6,6 @@ timestamp: 2026-04-30T07:58:53-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/cli-command-aliases-kdl
 tags: [cli, aliases, kdl, optparse-applicative, configuration]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-04-30T07:58:53-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Command Aliases via KDL Config File

@@ -26,7 +26,7 @@ reviewed the current version of every concept.
 When materially changing a concept:
 
 1. update its `timestamp`;
-2. append timestamp-bound review records without deleting old ones;
+2. preserve old review records and add a new one only after an actual review;
 3. add an entry to the nearest `log.md`;
 4. regenerate indexes with `okf index patterns --write`;
 5. validate with:

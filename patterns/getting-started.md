@@ -2,26 +2,18 @@
 type: Navigation
 title: "Find the right Haskell pattern"
 description: "Task-oriented routes into the Haskell standards, API conventions, CLI patterns, and agent guidance"
-timestamp: 2026-07-24T06:57:34-07:00
+timestamp: 2026-07-24T07:18:21-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/patterns-getting-started
 tags: [navigation, haskell, patterns, standards, discovery]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-07-24T06:57:34-07:00
-    scope: content-and-metadata
-    outcome: approved
 ---
 
 # Find the right Haskell pattern
 
 Start from the task, not from a guessed filename. Every document is written for
 both humans and coding agents and carries a concise description, search tags,
-lifecycle status, and timestamp-bound review provenance.
+and lifecycle status. Review status is explicit, including when no human or
+model has reviewed the current version.
 
 ## Starting or standardizing a Haskell project
 
@@ -82,5 +74,5 @@ scripts/review-status
 ```
 
 The report names current human reviewers and model reviews as
-`provider/model`; `-` means that review class is still pending. Dated
+`provider/model`; `-` means no review of that class is recorded. Dated
 `log.md` files record changes for the nearest directory scope.

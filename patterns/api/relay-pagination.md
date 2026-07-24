@@ -6,15 +6,6 @@ timestamp: 2026-07-22T12:26:17-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-relay-pagination
 tags: [api, servant, relay, pagination, cursor, keyset, hasql]
 status: current
-reviews:
-  - kind: model
-    reviewer: codex
-    provider: openai
-    model: gpt-5
-    reviewed_at: 2026-07-24T06:57:34-07:00
-    document_timestamp: 2026-07-22T12:26:17-07:00
-    scope: catalog-metadata
-    outcome: approved
 ---
 
 # Relay Pagination for List Endpoints
