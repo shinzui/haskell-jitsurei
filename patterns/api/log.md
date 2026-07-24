@@ -1,6 +1,7 @@
 # api Update Log
 
 ## 2026-07-24
+* **Consistency**: servant-routes' common stanza now lists the full Core Standards extension baseline (adds OverloadedLabels)
 * **Correction**: servant-routes — fixed the router-order claim (literals are not hoisted above sibling captures; declaration order with backtracking decides), scoped the MultiVerb rule with named exemptions (Raw, streaming, cannot-fail single-status) while keeping NamedRoutes unconditional, aligned the umbrella/health examples with the health standard, added the `-Werror=missing-fields` caveat and a UVerb note
 * **Correction**: openapi-from-types — the upstream `servant-openapi3` failure mode is a compile error (no MultiVerb instance), not silent omission; added the 4.1-cohort rule for relay consumers and the servant >= 0.20.3 gate
 * **Correction**: opentelemetry-integration — per-signal OTLP endpoint variables get the signal path appended by the released 1.0.0.0 exporters, so only the base endpoint is safe; request-log middleware calls now pass the predicate argument

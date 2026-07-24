@@ -2,10 +2,19 @@
 type: Pattern
 title: "Record Patterns"
 description: "Define and manipulate records with Generic Lens and overloaded labels"
-timestamp: 2026-06-27T14:01:59-07:00
+timestamp: 2026-07-24T09:59:51-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/core-record-patterns
 tags: [core, haskell, records, generic-lens, overloaded-labels]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T09:59:51-07:00
+    document_timestamp: 2026-07-24T09:59:51-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Record Patterns
@@ -27,7 +36,7 @@ common common
     OverloadedStrings
 
   build-depends:
-    , generic-lens ^>=2.2    -- Automatic lens generation
+    , generic-lens ^>=2.3    -- Automatic lens generation
     , lens ^>=5.3            -- Lens operators
 ```
 
@@ -39,20 +48,22 @@ Create a custom prelude that re-exports lens functionality:
 
 ```haskell
 -- src/Service/Prelude.hs
+{-# LANGUAGE PackageImports #-}
+
 module Service.Prelude
   ( module X
   , module Control.Lens
   )
 where
 
--- Re-export lens operators
+-- Re-export lens operators (PackageImports pins the package; see Custom Prelude)
 import "lens" Control.Lens
 
 -- Other common re-exports
-import Data.Text as X (Text, pack, unpack)
-import Data.Time as X (UTCTime, Day)
-import GHC.Generics as X (Generic)
-import Data.Aeson as X (FromJSON, ToJSON, Value)
+import "text" Data.Text as X (Text, pack, unpack)
+import "time" Data.Time as X (UTCTime, Day)
+import "base" GHC.Generics as X (Generic)
+import "aeson" Data.Aeson as X (FromJSON, ToJSON, Value)
 ```
 
 **Important**: The prelude does **not** import `Data.Generics.Labels`. See [Enabling `#label` Syntax](#enabling-label-syntax) below.
@@ -84,10 +95,19 @@ prelude forces the generic-lens interpretation of `#label` onto *every* module
 in the project.
 
 That breaks any module that needs a **different** `IsLabel` instance — most
-notably the **keiki DSL**, which overloads `#label` for its own purposes. When
-both the generic-lens orphan and the keiki instance are in scope, GHC reports
-overlapping `IsLabel` instances, and the conflict cannot be resolved at the use
-site.
+notably the **keiki DSL**, which overloads `#label` for its own purposes. With
+the generic-lens orphan in scope, keiki's bare-`#name` reads stop resolving:
+the orphan shadows keiki's instances during type inference, and keiki's own
+documentation records exactly this failure for consumers whose prelude
+re-exports generic-lens. The breakage cannot be repaired at the use site.
+
+One more property to know: orphan instances propagate *transitively*. Any
+module that (even indirectly) imports a module importing
+`Data.Generics.Labels` also sees the instance. The per-module import therefore
+limits exposure rather than strictly scoping it — in particular, keep the
+import out of modules that only *define* domain types (definition modules
+rarely manipulate records), so keiki-facing modules can import the types
+without inheriting the orphan.
 
 Keeping the import out of the prelude makes `#label` resolution a local,
 per-module decision:
@@ -232,16 +252,16 @@ Set a `Maybe` field to `Just value`:
 data MemberStateData = MemberStateData
   { memberSyncData :: !MemberSynchronizationData
   , memberEmail :: !(Maybe Text)
-  , tanStatus :: !(Maybe TanStatus)
+  , banStatus :: !(Maybe BanStatus)
   }
   deriving stock (Generic, Eq, Show)
 
-setTanStatus :: TanStatus -> MemberStateData -> MemberStateData
-setTanStatus status stateData = stateData & #tanStatus ?~ status
+setBanStatus :: BanStatus -> MemberStateData -> MemberStateData
+setBanStatus status stateData = stateData & #banStatus ?~ status
 
 -- Example: Set to Banned
 banMember :: Text -> MemberStateData -> MemberStateData
-banMember reason stateData = stateData & #tanStatus ?~ Banned reason
+banMember reason stateData = stateData & #banStatus ?~ Banned reason
 ```
 
 ### Over Operator (`%~`)
@@ -263,6 +283,13 @@ addAction action state = state & #actions %~ (<> [action])
 ## Prefer Lens Over Record Update Syntax
 
 **Always prefer lens operators over Haskell's record update syntax**. Lens operators compose better, are more consistent, and make code easier to read and refactor.
+
+This is more than a style preference. Under `DuplicateRecordFields` (mandatory
+per [Core Standards](./standards.md)), bare selector occurrences must be
+entirely unambiguous as of GHC 9.4, and a record update is accepted only when
+at most one datatype in scope has every field being updated — so selector
+access and update syntax stop compiling exactly where the fleet's shared field
+names appear. `#label` access resolves through `Generic` and is unaffected.
 
 ### Simple Field Updates
 
@@ -437,7 +464,9 @@ updateMembersStream newStream config =
 Apply a pure function after lens access:
 
 ```haskell
-import qualified Data.Set as Set
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Set qualified as Set
+import Data.Set.Lens (setOf)  -- not re-exported by Control.Lens
 
 data MapLocationAreasData = MapLocationAreasData
   { propertyId :: !PropertyId
@@ -513,9 +542,6 @@ import Service.Prelude
 import Data.Generics.Labels ()  -- enables #label access below
 import Service.Domain.Member.MemberCommand
 import Service.Domain.Member.MemberEvent
-import qualified TanES.Decider as D
-
-type MemberDecider = D.Decider' MemberCommand MemberEvent MemberState
 
 data MemberState
   = InitialState
@@ -525,12 +551,12 @@ data MemberState
 data MemberStateData = MemberStateData
   { memberSyncData :: !MemberSynchronizationData
   , memberEmail :: !(Maybe MemberEmail)
-  , tanStatus :: !(Maybe TanStatus)
+  , banStatus :: !(Maybe BanStatus)
   }
   deriving stock (Generic, Eq, Show)
 
-decider :: MemberDecider
-decider = D.Decider {decide, evolve, initialState = InitialState, isTerminal = const False}
+-- The decide/evolve pair is the shape the event-sourcing runtime consumes
+-- (keiro's EventStream); the framework wiring is out of scope here.
 
 -- Using lens in decide function
 decide :: MemberCommand -> MemberState -> [MemberEvent]
@@ -576,7 +602,7 @@ evolve s (MemberImported d) = MemberState $
   MemberStateData
     { memberSyncData = mkSyncDataFromImport d
     , memberEmail = Nothing
-    , tanStatus = Nothing
+    , banStatus = Nothing
     }
 evolve (MemberState stateData) (MemberStatusChanged d) =
   let updatedSyncData = (stateData ^. #memberSyncData)
@@ -584,7 +610,7 @@ evolve (MemberState stateData) (MemberStatusChanged d) =
         & #status .~ d ^. #status
   in MemberState $ stateData & #memberSyncData .~ updatedSyncData
 evolve (MemberState stateData) (MemberBanned d) =
-  MemberState $ stateData & #tanStatus ?~ Banned (d ^. #reason)
+  MemberState $ stateData & #banStatus ?~ Banned (d ^. #reason)
 evolve s _ = s
 ```
 
@@ -609,22 +635,24 @@ mkMemberImportedData d = MemberImportedData
 
 ### Default Aeson Options
 
-Use `defaultAesonOptions` from tan-aeson for consistent JSON:
+Define the project's shared Aeson options once in the [custom
+prelude](./custom-prelude.md) — `eventAesonOptions` there is the pattern — and
+use them for every serialized type, so the wire format is decided in one place:
 
 ```haskell
-import TanAeson (defaultAesonOptions)
+import Service.Prelude  -- re-exports eventAesonOptions
 
 instance FromJSON MemberImportedData where
-  parseJSON = genericParseJSON defaultAesonOptions
+  parseJSON = genericParseJSON eventAesonOptions
 
 instance ToJSON MemberImportedData where
-  toJSON = genericToJSON defaultAesonOptions
+  toJSON = genericToJSON eventAesonOptions
 ```
 
 ### Custom Options for Optional Fields
 
 ```haskell
-import qualified Data.Aeson as A
+import Data.Aeson qualified as A
 
 aesonOptions :: A.Options
 aesonOptions = A.defaultOptions
@@ -657,6 +685,14 @@ let s = memberSyncData stateData
 -- CORRECT: Use lens
 let s = stateData ^. #memberSyncData
 ```
+
+Pattern matching is not "access" in this sense. Matching a record in a function
+head — positionally or with field puns, as the API standards' `SortSpec`
+extractors do (`\Member {createdAt} -> createdAt`) — is fine and often
+clearest; `DuplicateRecordFields` resolves pun fields by the constructor being
+matched. The anti-pattern is selector-function application and update `{}`
+syntax, not pattern matches. Record *construction* syntax is likewise fine —
+the examples in this document use it throughout.
 
 ### Don't Use Record Update Syntax
 

@@ -2,10 +2,19 @@
 type: Pattern
 title: "Custom Prelude Pattern"
 description: "Centralize common re-exports and project-wide utilities in a small project prelude"
-timestamp: 2026-06-19T08:57:05-07:00
+timestamp: 2026-07-24T09:56:04-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/core-custom-prelude
 tags: [core, haskell, prelude, imports, generic-lens]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T09:56:04-07:00
+    document_timestamp: 2026-07-24T09:56:04-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Custom Prelude Pattern
@@ -48,7 +57,7 @@ import "aeson" Data.Aeson as X
   , genericParseJSON, genericToJSON, genericToEncoding
   , Options, SumEncoding(..), defaultOptions
   )
-import "aeson" Data.Aeson.Casing as X (camelTo2)
+import "aeson" Data.Aeson.Types as X (camelTo2)
 
 import "time" Data.Time as X (UTCTime, getCurrentTime)
 
@@ -77,7 +86,7 @@ import "lens" Control.Lens
 
 - **Re-export via `as X`** — the `module X` export in the module header collects everything imported `as X`
 - **Export `Control.Lens` directly** — lens operators are used everywhere and benefit from a blanket re-export
-- **Do NOT re-export `Data.Generics.Labels`** — it is tempting to enable `#label` syntax once in the prelude, but the orphan `IsLabel` instance it provides then leaks into every module. Any module that needs a *different* `IsLabel` instance — most notably the **keiki DSL**, which overloads `#label` for its own purposes — would then conflict with the generic-lens instance, producing overlapping-instance errors that cannot be resolved locally. Keep the prelude free of it and import it explicitly in the modules that use generic-lens `#label` access. See [Record Patterns](./record-patterns.md) for the per-module pattern.
+- **Do NOT re-export `Data.Generics.Labels`** — it is tempting to enable `#label` syntax once in the prelude, but the orphan `IsLabel` instance it provides then leaks into every module. Any module that needs a *different* `IsLabel` instance — most notably the **keiki DSL**, which overloads `#label` for its own purposes — then breaks: the generic-lens orphan shadows keiki's instances during inference and keiki's bare-`#name` reads stop resolving (keiki's own documentation calls this out), and the breakage cannot be repaired at the use site. Keep the prelude free of it and import it explicitly in the modules that use generic-lens `#label` access. See [Record Patterns](./record-patterns.md) for the per-module pattern.
 
 ## Cabal Configuration
 
@@ -93,11 +102,14 @@ library
   build-depends:
     , base
     , aeson
-    , generic-lens ^>=2.2
+    , generic-lens ^>=2.3
     , lens ^>=5.3
     , text
     , time
 ```
+
+Bounds verified against Hackage on 2026-07-24 (generic-lens 2.3.0.0, lens 5.3.6);
+re-check the registry before pinning.
 
 Use GHC2024 and a shared set of default extensions:
 

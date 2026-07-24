@@ -2,10 +2,19 @@
 type: Standard
 title: "Haskell Core Standards"
 description: "Baseline GHC, language-edition, extension, import, and record conventions for Haskell projects"
-timestamp: 2026-05-15T15:45:56-07:00
+timestamp: 2026-07-24T09:56:04-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/core-standards
 tags: [core, haskell, ghc-9.12, ghc2024, cabal, standards]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T09:56:04-07:00
+    document_timestamp: 2026-07-24T09:56:04-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Haskell Core Standards
@@ -16,7 +25,7 @@ Baseline requirements for every Haskell project in this codebase. These settings
 
 **GHC 9.12 or newer.**
 
-GHC 9.12 is required because core packages we depend on only support 9.12 (and newer). The standards below also rely on features available only in that release, notably `MultilineStrings` and the GHC2024 language edition.
+GHC 9.12 is required because core packages we depend on only support 9.12 (and newer). The standards below also rely on `MultilineStrings`, which shipped in GHC 9.12; the GHC2024 language edition (first available in GHC 9.10) is likewise assumed.
 
 ## Cabal Configuration
 
@@ -36,7 +45,7 @@ All library, executable, test, and benchmark stanzas should `import: common` so 
 
 ### Why these extensions are mandatory
 
-- **`DeriveAnyClass`** — required by the explicit `deriving anyclass (...)` strategy used for typeclasses like `FromJSON`/`ToJSON`.
+- **`DeriveAnyClass`** — required by the explicit `deriving anyclass (...)` strategy used for typeclasses like `FromJSON`/`ToJSON`. This extension is safe as a global default *only because* deriving strategies are always explicit (see [Record Patterns](./record-patterns.md)): with it enabled, a strategy-less `deriving (C)` can silently choose the anyclass path and produce an empty instance for a class without suitable defaults. Never write a strategy-less deriving clause.
 - **`DuplicateRecordFields`** — lets multiple records share field names without prefixes. See [Record Patterns](./record-patterns.md).
 - **`OverloadedLabels`** — enables the `#fieldName` syntax used with `generic-lens`. See [Record Patterns](./record-patterns.md).
 - **`OverloadedStrings`** — required for `Text` literals throughout the codebase.

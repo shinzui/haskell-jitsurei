@@ -2,15 +2,15 @@
 type: Standard
 title: "Servant API Design"
 description: "Organize Servant APIs as vertical NamedRoutes slices with typed MultiVerb responses"
-timestamp: 2026-07-24T07:39:31-07:00
+timestamp: 2026-07-24T09:56:04-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-servant-routes
 tags: [api, servant, named-routes, multiverb, vertical-slices, errors]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T07:39:31-07:00
-    document_timestamp: 2026-07-24T07:39:31-07:00
+    reviewed_at: 2026-07-24T09:56:04-07:00
+    document_timestamp: 2026-07-24T09:56:04-07:00
     scope: technical-accuracy
     outcome: approved
     provider: anthropic
@@ -43,9 +43,10 @@ collected into a single `Routes.hs` grouped by layer.
 -- service-api.cabal
 common common
   default-language: GHC2024   -- supplies DataKinds
-  default-extensions:
+  default-extensions:         -- the fleet baseline from Core Standards
     DeriveAnyClass
     DuplicateRecordFields
+    OverloadedLabels
     OverloadedStrings
 
   build-depends:

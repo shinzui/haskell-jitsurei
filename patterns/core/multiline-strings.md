@@ -2,10 +2,19 @@
 type: Pattern
 title: "Multiline String Literals"
 description: "Use GHC 9.12 MultilineStrings for readable indentation-aware embedded text"
-timestamp: 2026-03-26T14:54:50-07:00
+timestamp: 2026-07-24T09:56:04-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/core-multiline-strings
 tags: [core, haskell, ghc-9.12, multiline-strings, text]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T09:56:04-07:00
+    document_timestamp: 2026-07-24T09:56:04-07:00
+    scope: technical-accuracy
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Multiline String Literals
@@ -84,7 +93,11 @@ GHC applies seven steps between string gap collapsing and escape character resol
 
 ### Indentation Stripping
 
-The closing `"""` sets the indentation baseline:
+The baseline is the longest whitespace prefix shared by the *content* lines. The
+first line and whitespace-only lines — including the line holding the closing
+`"""` — are excluded from the computation, so the closing delimiter's column does
+**not** set the baseline (aligning it with the content is a readability
+convention, nothing more):
 
 ```haskell
 html :: String

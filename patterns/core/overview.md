@@ -6,6 +6,15 @@ timestamp: 2026-07-24T06:57:34-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/core-overview
 tags: [core, haskell, standards, ghc2024, cabal]
 status: current
+reviews:
+  - kind: model
+    reviewer: claude-code
+    reviewed_at: 2026-07-24T09:56:04-07:00
+    document_timestamp: 2026-07-24T06:57:34-07:00
+    scope: content
+    outcome: approved
+    provider: anthropic
+    model: claude-fable-5
 ---
 
 # Core Haskell patterns
