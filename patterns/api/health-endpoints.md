@@ -2,15 +2,15 @@
 type: Standard
 title: "Kubernetes Health Endpoints"
 description: "Separate in-process liveness from dependency-aware readiness in Servant services"
-timestamp: 2026-07-24T10:28:01-07:00
+timestamp: 2026-07-24T15:48:14-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-health-endpoints
-tags: [api, servant, kubernetes, health, liveness, readiness]
+tags: [api, servant, kubernetes, health, liveness, readiness, servant-health]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T10:28:01-07:00
-    document_timestamp: 2026-07-24T10:28:01-07:00
+    reviewed_at: 2026-07-24T15:48:14-07:00
+    document_timestamp: 2026-07-24T15:48:14-07:00
     scope: technical-accuracy
     outcome: approved
     provider: anthropic
@@ -21,7 +21,9 @@ reviews:
 
 **Every service serves `/health/live` (is the process alive) and `/health/ready`
 (should it receive traffic); liveness never checks dependencies, while readiness checks
-exactly the dependencies whose failure this pod's restart cannot fix.**
+exactly the dependencies whose failure this pod's restart cannot fix. The typed probe
+surface comes from the released `servant-health` package — services supply checks and
+mount the routes; they never re-implement the probe code.**
 
 These endpoints have different consequences. Treating them as two spellings of the same
 check turns a recoverable dependency outage into an orchestrator-induced incident.
@@ -59,8 +61,6 @@ through the store pool. `checkReadiness` rejects an overflow-stopped subscriptio
 subscription whose lag exceeds `readinessMaxLag`, or a configured dependency check that
 reports unhealthy. `kiroku-metrics/src/Kiroku/Metrics/Config.hs` defaults
 `readinessMaxLag` to 10,000 events, the Kiroku analogue of Marten's `maxEventLag`.
-`kiroku-metrics/src/Kiroku/Metrics/Server.hs` exposes the resulting `/health`,
-`/health/live`, and `/health/ready` routes with 200/503 status selection.
 
 Do not add downstream HTTP services or Kafka brokers merely because the process calls
 them. A downstream readiness dependency can cascade one service's outage across the
@@ -68,68 +68,41 @@ fleet. The transactional outbox is specifically the buffer for broker outages; m
 Kafka a readiness condition defeats that boundary. Add a dependency only when this pod
 cannot serve its contracted request semantics while that dependency is unavailable.
 
-## Declare Both Outcomes in the Route Type
+## Mount servant-health; Never Vendor the Probe Code
 
-Mount a `HealthApi` record under `"health"` on the service's umbrella `NamedRoutes`
-record. Both operations return a small status report: 200 when the check passes, or 503
-with the failing check and the time it began failing. A probe report describes current
-system state; it is not an RFC 9457 error document. Exempt these named routes from the
-problem-details conformance test.
+The typed probe surface is the released **`servant-health`** package (Hackage 0.1.0.0,
+verified 2026-07-24). It owns the wire contract and the one dangerous piece of code:
+the `AsUnion` instance mapping a passed probe to 200 and a failed probe to 503. Both
+alternatives carry the same body type, so that instance is the only place the mapping
+exists — which is exactly why it lives in one tested package and **must never be
+re-implemented in a service**. An earlier revision of this standard embedded the full
+probe code for vendoring; that is superseded.
 
-Use the same explicit `MultiVerb` result mapping prescribed for application routes. The
-following excerpt includes the route, the injected check seam, and the readiness
-handler; the liveness handler is identical except for the supplied check.
+```cabal
+build-depends:
+    servant-health ^>=0.1
+
+test-suite service-test
+  build-depends:
+      servant-health:testkit ^>=0.1
+```
+
+The package provides, from `Servant.Health`: the `ProbeStatus` wire type (exactly
+`status`, `check`, `failingSince`; a closed contract with a non-orphan `ToSchema` that
+always matches the JSON codec), the 200/503 `MultiVerb` response list, the `HealthApi`
+record (fields `live` and `ready`), the check seam (`ProbeCheck = IO ProbeVerdict`),
+and a `MonadIO`-general `healthServer`. Mount it under `"health"` on the umbrella
+record and wire the two checks:
 
 ```haskell
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE EmptyCase #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators #-}
-
-import Data.Aeson (FromJSON, ToJSON)
-import Data.SOP (I (..), NS (S, Z))
-import Data.Text (Text)
-import Data.Time (UTCTime)
-import GHC.Generics (Generic)
-import Servant.API (JSON, NamedRoutes, StdMethod (GET), (:>))
-import Servant.API.Generic ((:-))
-import Servant.API.MultiVerb (AsUnion (..), MultiVerb, Respond)
-import Servant.Server.Generic (AsServerT)
-
-data ProbeStatus = ProbeStatus
-  { status :: !Text,
-    check :: !Text,
-    failingSince :: !(Maybe UTCTime)
-  }
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (FromJSON, ToJSON)
-
-type ProbeResponses =
-  '[ Respond 200 "Probe passed" ProbeStatus,
-     Respond 503 "Probe failed" ProbeStatus
-   ]
-
-data ProbeResult
-  = ProbePassed !ProbeStatus
-  | ProbeFailed !ProbeStatus
-
-instance AsUnion ProbeResponses ProbeResult where
-  toUnion = \case
-    ProbePassed body -> Z (I body)
-    ProbeFailed body -> S (Z (I body))
-  fromUnion = \case
-    Z (I body) -> ProbePassed body
-    S (Z (I body)) -> ProbeFailed body
-    S (S impossible) -> case impossible of {}
-
-data HealthApi mode = HealthApi
-  { live :: mode :- "live" :> MultiVerb 'GET '[JSON] ProbeResponses ProbeResult,
-    ready :: mode :- "ready" :> MultiVerb 'GET '[JSON] ProbeResponses ProbeResult
-  }
-  deriving stock (Generic)
+import Servant.Health (HealthApi, ProbeCheck, healthServer)
+import Servant.Health.Check
+  ( boolCheck,
+    newFailureTracker,
+    safeCheck,
+    sequenceChecks,
+    withProbeTimeout,
+  )
 
 data ServiceApi mode = ServiceApi
   { health :: mode :- "health" :> NamedRoutes HealthApi
@@ -137,36 +110,74 @@ data ServiceApi mode = ServiceApi
   }
   deriving stock (Generic)
 
-data ProbeVerdict
-  = Healthy
-  | Unhealthy {failedCheck :: !Text, since :: !UTCTime}
+mkProbes :: IO (ProbeCheck, ProbeCheck)
+mkProbes = do
+  trackLive <- newFailureTracker
+  trackReady <- newFailureTracker
+  let liveness =
+        trackLive
+          . withProbeTimeout 2_000_000 "liveness"
+          . safeCheck "liveness"
+          $ boolCheck "liveness" inProcessResponsive
+      readiness =
+        trackReady . sequenceChecks $
+          [ safeCheck "postgres" (boolCheck "postgres" postgresPingOk),
+            safeCheck "subscription-lag" (boolCheck "subscription-lag" lagBelowLimit)
+          ]
+  pure (liveness, readiness)
 
-type ProbeCheck = IO ProbeVerdict
-
-healthServer :: ProbeCheck -> ProbeCheck -> HealthApi (AsServerT IO)
-healthServer liveCheck readyCheck =
-  HealthApi
-    { live = runProbe liveCheck,
-      ready = runProbe readyCheck
-    }
-
-runProbe :: ProbeCheck -> IO ProbeResult
-runProbe checkAction =
-  checkAction >>= \case
-    Healthy ->
-      pure (ProbePassed (ProbeStatus "ok" "all" Nothing))
-    Unhealthy failed since ->
-      pure (ProbeFailed (ProbeStatus "failed" failed (Just since)))
+-- at server assembly:
+--   (liveness, readiness) <- mkProbes
+--   ... ServiceApi {health = healthServer liveness readiness, ...}
 ```
 
-Inject the two `IO` checks at the server boundary. Tests can then force passing and
-failing verdicts and assert both the status and body without a real database or a
-stalled subscription. The production readiness action may compose `postgresPing`, lag,
-and overflow checks; the liveness action must remain in-process.
+The checks themselves stay service-owned (kiroku's `postgresPing` and lag checks are
+the prior art above); the combinators are the package's. Wrap **every** check in
+`safeCheck` so a thrown exception becomes a failed probe rather than a 500; bound the
+liveness check with `withProbeTimeout` (microseconds, matching kiroku's
+`livenessTimeoutUs`); compose readiness with `sequenceChecks` (first failure wins); and
+wrap each probe with `newFailureTracker` so the wire field `failingSince` reports when
+the failure *began* across repeated probe calls, not the current instant.
+
+A probe report describes current system state; it is not an RFC 9457 error document.
+Exempt these named routes from the problem-details conformance test.
+
+## Prove the Wiring with the Test Kit
+
+Mounting the routes is three lines, and the two routes share one handler type — so a
+service that swaps its liveness and readiness checks still compiles. The package ships
+the proof as `servant-health:testkit`; using it is the required per-service test:
+
+```haskell
+import Servant.Health.TestKit (probeContractTests)
+
+probeTests :: TestTree
+probeTests = probeContractTests "service probes" $ \liveCheck readyCheck ->
+  pure (serviceApp testEnv liveCheck readyCheck)
+```
+
+The kit owns the two checks, flips them between cases, and asserts the full matrix:
+both healthy (200s with the `ok` body), each probe failing alone (503 with the failing
+check's name and onset, while the *other* probe stays 200 — the cross-assertions that
+catch swapped wiring), and the `application/json` content type.
+
+## Exclude Probe Noise via the Path Constants
 
 Exclude `/health/live` and `/health/ready` from the production request logger's path
-predicate. Kubernetes already records probe results, and logging every successful probe
-obscures real request traffic. See [Production Request Logging](./request-logging.md).
+predicate — Kubernetes already records probe results, and logging every successful
+probe obscures real request traffic. Build the predicate from the package's constants
+rather than restating string literals that can drift from the actual routes:
+
+```haskell
+import Network.Wai (rawPathInfo)
+import Servant.Health.Paths (healthRawPaths)
+
+requestLogPredicate :: Request -> Bool
+requestLogPredicate request = rawPathInfo request `notElem` healthRawPaths
+```
+
+Use the same constants to name these routes in the problem-details conformance
+exemption list. See [Production Request Logging](./request-logging.md).
 
 ## Configure Kubernetes for the Two Semantics
 

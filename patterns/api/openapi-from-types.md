@@ -2,15 +2,15 @@
 type: Standard
 title: "Generating the OpenAPI Document from Servant Types"
 description: "Derive OpenAPI 3.1 from Servant route types and enforce the generated artifact in CI"
-timestamp: 2026-07-24T07:39:31-07:00
+timestamp: 2026-07-24T15:48:14-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-openapi-from-types
 tags: [api, servant, openapi, openapi-3.1, multiverb, code-generation]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T07:39:31-07:00
-    document_timestamp: 2026-07-24T07:39:31-07:00
+    reviewed_at: 2026-07-24T15:48:14-07:00
+    document_timestamp: 2026-07-24T15:48:14-07:00
     scope: technical-accuracy
     outcome: approved
     provider: anthropic
@@ -67,12 +67,13 @@ library
 
 Those were the current released versions on 2026-07-22, re-verified on Hackage on
 2026-07-24. Treat the two libraries as a compatibility cohort and re-check Hackage plus
-the upstream release tags before changing bounds. One decision rule matters here:
-`relay-pagination-servant-0.1.0.0` intentionally requires the older but coherent
-`openapi-hs >=4.1 && <4.2` / `servant-openapi-hs >=4.1 && <4.2` cohort, so **a service
-with any Relay-paginated endpoint uses the 4.1 cohort throughout** until a relay
-release widens its bounds. The 5.x bounds above are for services with no relay
-dependency. Never mix cohorts within one service.
+the upstream release tags before changing bounds. The cohort split that used to
+complicate this choice is resolved: `relay-pagination-servant` 0.1.1.0 (2026-07-24)
+targets this 5.x cohort, so every current fleet dependency — relay pagination and
+servant-health included — resolves the same pair, and the 5.x bounds above apply to all
+new work. A service still pinned to relay 0.1.0.0 (which required the older 4.1 cohort)
+bumps to 0.1.1.0 rather than holding its OpenAPI packages back. Never mix cohorts
+within one service.
 
 Note the module namespaces are unchanged from the upstream packages — you still
 `import Data.OpenApi` and `import Servant.OpenApi`. Only the package names differ.

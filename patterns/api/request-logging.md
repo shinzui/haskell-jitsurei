@@ -2,15 +2,15 @@
 type: Standard
 title: "Production Request Logging"
 description: "Emit bounded structured WAI request logs with trace correlation and strict data minimization"
-timestamp: 2026-07-22T12:26:12-07:00
+timestamp: 2026-07-24T15:48:14-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-request-logging
 tags: [api, wai, logging, opentelemetry, security, observability]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T07:39:31-07:00
-    document_timestamp: 2026-07-22T12:26:12-07:00
+    reviewed_at: 2026-07-24T15:48:14-07:00
+    document_timestamp: 2026-07-24T15:48:14-07:00
     scope: technical-accuracy
     outcome: approved
     provider: anthropic
@@ -140,6 +140,11 @@ defaultRequestLogPredicate request =
   rawPathInfo request /= "/health/live"
     && rawPathInfo request /= "/health/ready"
 ```
+
+A service that mounts its probes from `servant-health` (per [Kubernetes Health
+Endpoints](./health-endpoints.md)) should build this predicate from
+`Servant.Health.Paths.healthRawPaths` instead of restating the literals, so the
+exclusion cannot drift from the actual routes.
 
 The `respond` continuation observes the actual response status without consuming the
 response body. If an application deliberately allows exceptions to escape past servant,

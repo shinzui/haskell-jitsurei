@@ -2,15 +2,15 @@
 type: Standard
 title: "Relay Pagination for List Endpoints"
 description: "Implement typed Relay cursor pagination with keyset SQL and conformance tests"
-timestamp: 2026-07-24T10:28:01-07:00
+timestamp: 2026-07-24T15:48:14-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-relay-pagination
 tags: [api, servant, relay, pagination, cursor, keyset, hasql]
 status: current
 reviews:
   - kind: model
     reviewer: claude-code
-    reviewed_at: 2026-07-24T10:28:01-07:00
-    document_timestamp: 2026-07-24T10:28:01-07:00
+    reviewed_at: 2026-07-24T15:48:14-07:00
+    document_timestamp: 2026-07-24T15:48:14-07:00
     scope: technical-accuracy
     outcome: approved
     provider: anthropic
@@ -28,8 +28,9 @@ pagination entirely are the bounded snapshots defined in
 [When a Plain List Is Allowed](#when-a-plain-list-is-allowed).
 
 This standard was verified against the four `relay-pagination` 0.1.0.0 packages, their
-upstream `v0.1.0.0` tag, and their Hackage releases on 2026-07-22. Re-check Hackage and
-upstream tags before changing bounds.
+upstream `v0.1.0.0` tag, and their Hackage releases on 2026-07-22, and re-checked
+against the 0.1.1.0 releases on 2026-07-24. Re-check Hackage and upstream tags before
+changing bounds.
 
 ## When a Plain List Is Allowed
 
@@ -300,10 +301,13 @@ Import `Relay.Pagination.Servant.OpenApi` in the one OpenAPI generator module. I
 canonical home of the orphan instances that add all four query parameters, bounds, and
 schemas to the derived document.
 
-All four relay packages are published on Hackage at 0.1.0.0. That release bounds both
-`openapi-hs` and `servant-openapi-hs` to the compatible `4.1.*` cohort. Follow those
-bounds; do not force the current 5.x OpenAPI packages into a relay 0.1 build. A later
-relay release may widen the cohort, so verify current registry metadata before pinning.
+All four relay packages are published on Hackage; use 0.1.1.0 (released 2026-07-24)
+for new work. `relay-pagination-servant` 0.1.1.0 targets the current 5.x OpenAPI
+cohort (`openapi-hs >=5.0 && <5.1`, `servant-openapi-hs >=5.1 && <5.2`), so relay
+consumers now resolve the same cohort as the rest of the fleet. Only the superseded
+0.1.0.0 required the older `4.1.*` cohort — a service still pinned there bumps relay
+rather than holding its OpenAPI packages back. Verify current registry metadata before
+pinning.
 
 See [Generating the OpenAPI Document from Servant Types](./openapi-from-types.md) for
 artifact generation, stable operation IDs, and document conformance tests.

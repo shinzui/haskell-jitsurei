@@ -1,6 +1,8 @@
 # api Update Log
 
 ## 2026-07-24
+* **Adoption**: health-endpoints now prescribes the released `servant-health` 0.1.0.0 package (mount `HealthApi`, wire checks through the `Servant.Health.Check` combinators, prove wiring with `servant-health:testkit`, build logger exclusions from `Servant.Health.Paths`) instead of vendoring the probe code; the `AsUnion` mapping lives in the package and must not be re-implemented
+* **Correction**: relay-pagination and openapi-from-types updated for `relay-pagination` 0.1.1.0, which targets the 5.x OpenAPI cohort — the 4.1-cohort decision rule is retired; request-logging points servant-health consumers at `healthRawPaths` for the probe exclusion
 * **Rename**: The problem-details standard now targets RFC 9457 by name (obsoletes RFC 7807, identical wire format) — concept renamed to `api/rfc9457-problem-details`, all cross-references, section citations, and the mori.dhall DocRef updated; the body records the 7807 history for readers of older fleet code
 * **Consistency**: servant-routes' common stanza now lists the full Core Standards extension baseline (adds OverloadedLabels)
 * **Correction**: servant-routes — fixed the router-order claim (literals are not hoisted above sibling captures; declaration order with backtracking decides), scoped the MultiVerb rule with named exemptions (Raw, streaming, cannot-fail single-status) while keeping NamedRoutes unconditional, aligned the umbrella/health examples with the health standard, added the `-Werror=missing-fields` caveat and a UVerb note
