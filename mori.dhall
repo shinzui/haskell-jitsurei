@@ -50,7 +50,7 @@ in  Schema.Project::{ project =
         , kind = Schema.DocKind.Guide
         , audience = Schema.DocAudience.Module
         , description = Some
-            "Overview of the route, response, contract, observability, pagination, and health standards for Servant APIs"
+            "Overview of the route, response, contract, integration-testing, observability, pagination, and health standards for Servant APIs"
         , location =
             Schema.DocLocation.LocalFile "patterns/api/overview.md"
         }
@@ -299,6 +299,15 @@ in  Schema.Project::{ project =
         , location =
             Schema.DocLocation.LocalFile
               "patterns/api/health-endpoints.md"
+        }
+      , Schema.DocRef::{ key = "api-hurl-integration-testing"
+        , kind = Schema.DocKind.Cookbook
+        , audience = Schema.DocAudience.Module
+        , description = Some
+            "Black-box API integration testing with Hurl: run resource-family suites against a live Haskell service, keep the default runner safe and explicit, assert stable wire contracts and negative behavior, isolate stateful and specially configured flows, and handle eventual consistency, signatures, secrets, and CI orchestration deliberately"
+        , location =
+            Schema.DocLocation.LocalFile
+              "patterns/api/hurl-integration-testing.md"
         }
       ]
     }

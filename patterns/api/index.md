@@ -1,10 +1,11 @@
 # Overview
 
-- [Servant API patterns](overview.md) - Prescriptive route, response, contract, observability, pagination, and health conventions
+- [Servant API patterns](overview.md) - Prescriptive route, response, contract, integration testing, observability, pagination, and health conventions
 
 # Standard
 
 - [Kubernetes Health Endpoints](health-endpoints.md) - Separate in-process liveness from dependency-aware readiness in Servant services
+- [Black-Box API Integration Testing with Hurl](hurl-integration-testing.md) - Exercise a live Haskell HTTP service with resource-family Hurl suites, explicit assertions, and isolated opt-in scenarios
 - [Generating the OpenAPI Document from Servant Types](openapi-from-types.md) - Derive OpenAPI 3.1 from Servant route types and enforce the generated artifact in CI
 - [OpenTelemetry Integration for Servant Services](opentelemetry-integration.md) - Wire one OpenTelemetry SDK lifecycle through WAI, Servant, Keiro, and the outbox
 - [Relay Pagination for List Endpoints](relay-pagination.md) - Implement typed Relay cursor pagination with keyset SQL and conformance tests

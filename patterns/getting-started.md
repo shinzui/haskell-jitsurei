@@ -2,7 +2,7 @@
 type: Navigation
 title: "Find the right Haskell pattern"
 description: "Task-oriented routes into the Haskell standards, API conventions, CLI patterns, and agent guidance"
-timestamp: 2026-07-24T10:28:01-07:00
+timestamp: 2026-07-30T16:01:13-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/patterns-getting-started
 tags: [navigation, haskell, patterns, standards, discovery]
 status: current
@@ -31,6 +31,8 @@ Read [Servant API patterns](api/overview.md). The usual order is:
 4. [OpenTelemetry](api/opentelemetry-integration.md) and
    [request logging](api/request-logging.md) for observability.
 5. [Health endpoints](api/health-endpoints.md) for deployment behavior.
+6. [Black-box API integration testing with Hurl](api/hurl-integration-testing.md)
+   for the live HTTP contract.
 
 Use [Relay Pagination](api/relay-pagination.md) when an endpoint returns a
 collection.

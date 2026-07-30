@@ -1,5 +1,8 @@
 # api Update Log
 
+## 2026-07-30
+* **Addition**: Added a Hurl black-box integration-testing standard based on the Mori API suite: resource-family files, an explicit read-only default runner, status/media/shape and negative assertions, capture-based workflows, isolated stateful and perimeter suites, entry-level retries for eventual consistency, precomputed signed bodies, secret handling, and CI lifecycle guidance
+
 ## 2026-07-24
 * **Adoption**: health-endpoints now prescribes the released `servant-health` 0.1.0.0 package (mount `HealthApi`, wire checks through the `Servant.Health.Check` combinators, prove wiring with `servant-health:testkit`, build logger exclusions from `Servant.Health.Paths`) instead of vendoring the probe code; the `AsUnion` mapping lives in the package and must not be re-implemented
 * **Correction**: relay-pagination and openapi-from-types updated for `relay-pagination` 0.1.1.0, which targets the 5.x OpenAPI cohort — the 4.1-cohort decision rule is retired; request-logging points servant-health consumers at `healthRawPaths` for the probe exclusion
