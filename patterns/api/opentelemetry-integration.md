@@ -2,7 +2,7 @@
 type: Standard
 title: "OpenTelemetry Integration for Servant Services"
 description: "Wire one OpenTelemetry SDK lifecycle through WAI, Servant route naming, Keiro, and the outbox"
-timestamp: 2026-08-05T06:25:37-07:00
+timestamp: 2026-08-05T07:02:52-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-opentelemetry-integration
 tags: [api, servant, opentelemetry, tracing, metrics, wai, keiro, http-route]
 status: current
@@ -31,12 +31,11 @@ This standard was verified against the released `hs-opentelemetry` 1.0.0.0 cohor
 the upstream 1.0.0.0 tags on 2026-07-22. Re-check Hackage and the upstream tags before
 changing a pin; keep the API, SDK, exporter, propagator, semantic-conventions, and WAI
 instrumentation packages on one compatible cohort. Keiro 0.3.0.0 requires
-`hs-opentelemetry-api >=1.0 && <1.1`. The Servant instrumentation was verified
-separately at `hs-opentelemetry-instrumentation-servant` 0.3.0.0 on 2026-08-05, by
-compiling it — and a `NamedRoutes`/`MultiVerb`/`AuthProtect` API shaped like a fleet
-service — against that cohort with GHC 9.10.3, servant 0.20.3.0, and the `GHC2024`
-baseline. See [Name Spans by Servant Route](#name-spans-by-servant-route), the one place
-in this standard that requires a bound relaxation and hand-written instances.
+`hs-opentelemetry-api >=1.0 && <1.1`. The Servant instrumentation is versioned
+independently of the cohort and comes from a fork; it was verified on 2026-08-05 by
+building it and running its test suite against that cohort with GHC 9.10.3 and servant
+0.20.3.0. See [Name Spans by Servant Route](#name-spans-by-servant-route), the one place
+in this standard that depends on a fork rather than a released package.
 
 ## Build the Executable for the SDK
 
@@ -55,9 +54,9 @@ executable service-server
     , hs-opentelemetry-instrumentation-servant ==0.3.*
 ```
 
-`hs-opentelemetry-instrumentation-servant` is versioned independently of the cohort and
-is not on Hackage; [Name Spans by Servant Route](#name-spans-by-servant-route) has the
-`cabal.project` pin and the bound relaxation it needs.
+`hs-opentelemetry-instrumentation-servant` is versioned independently of the cohort, is
+not on Hackage, and must come from our fork; [Name Spans by Servant
+Route](#name-spans-by-servant-route) has the `cabal.project` pin and the reasons.
 
 Without `-threaded`, provider initialization fails with:
 
@@ -230,96 +229,43 @@ route onto `http.server.request.duration` and `http.server.request.count`. The S
 middleware is what sets that attribute. Skip it and per-endpoint latency, per-endpoint
 error rate, and the collector's `spanmetrics` connector all have nothing to group by.
 
-### Pin It from Git
+### Pin the Fork
 
-The package is `mori://cachix/hs-opentelemetry-instrumentation-servant/packages/hs-opentelemetry-instrumentation-servant`
-at 0.3.0.0. It is **not published to Hackage** — only `v0.1.0.0`, `v0.2.0.0`, and
-`v0.2.1.0` were ever tagged upstream, and 0.3.0.0 exists only as a commit on the default
-branch. Pin the commit; the `.cabal` file is at the repository root, so no `subdir` is
-needed.
+**Depend on `mori://shinzui/hs-opentelemetry-instrumentation-servant`, not on upstream.**
+Upstream 0.3.0.0 does not compile against a fleet-shaped API and does not admit this
+standard's OpenTelemetry cohort; the fork fixes both and nothing else.
+
+The package is not published to Hackage in either form — only `v0.1.0.0`, `v0.2.0.0`,
+and `v0.2.1.0` were ever tagged upstream, and 0.3.0.0 exists only as a commit. So pin a
+commit. The `.cabal` file is at the repository root, so no `subdir` is needed.
 
 ```cabal
 source-repository-package
   type: git
-  location: https://github.com/cachix/hs-opentelemetry-instrumentation-servant.git
-  tag: 04141b2bd035f9c8183be8c9c256a21cb10067c9
+  location: https://github.com/shinzui/hs-opentelemetry-instrumentation-servant.git
+  tag: 5e99a7857032484abc669076704dee4335e7d0ad
 ```
 
-0.3.0.0 declares `hs-opentelemetry-api ==0.3.*`, which predates this standard's cohort.
-Relax the bound rather than vendoring or patching the package:
+That commit is the tip of `feat/multiverb-authprotect-and-api-1.0`, two commits ahead of
+upstream `04141b2b`:
 
-```cabal
-allow-newer:
-  hs-opentelemetry-instrumentation-servant:hs-opentelemetry-api
-```
+- `HasEndpoint` instances for `MultiVerb` and `AuthProtect`. Upstream's instance list
+  reaches `Verb`, `NoContentVerb`, `UVerb`, `Stream`, `Raw`, and `BasicAuth` and stops
+  there, so an API written to [Servant API Design](./servant-routes.md) — `NamedRoutes`
+  records of `MultiVerb` endpoints, auth combinators on the fields that need them —
+  fails to compile at the `openTelemetryServantMiddleware` call site. Not a missing
+  attribute: a type error.
+- `hs-opentelemetry-api >=0.3 && <1.1`, replacing upstream's `==0.3.*`. **No
+  `allow-newer` is needed.** The library needed no source change for 1.0.0.0; it uses
+  only `OpenTelemetry.Context.lookupSpan`,
+  `OpenTelemetry.Instrumentation.Wai.requestContext`, and the
+  `OpenTelemetry.Trace.Core` surface, all unchanged in that release — including the
+  `HashMap`-valued `SpanArguments.attributes` field the library builds by hand.
 
-That relaxation is safe, not merely convenient: the library uses only
-`OpenTelemetry.Context.lookupSpan`, `OpenTelemetry.Instrumentation.Wai.requestContext`,
-and the `OpenTelemetry.Trace.Core` surface (`makeTracer`, `inSpan'`, `addAttributes`,
-`defaultSpanArguments`, `SpanArguments`), all of which are unchanged in 1.0.0.0 —
-including the `HashMap`-valued `attributes` field the library builds by hand. The
-library compiles clean against the 1.0.0.0 cohort with the bound relaxed and no source
-change. Re-verify this when either side moves; if upstream releases a version declaring
-`==1.0.*`, drop the `allow-newer` instead of carrying it forward.
-
-### Supply the Missing `HasEndpoint` Instances
-
-`openTelemetryServantMiddleware` demands `HasEndpoint api` over the *entire* API type.
-0.3.0.0 covers neither `MultiVerb` nor `AuthProtect` — its instance list reaches `Verb`,
-`NoContentVerb`, `UVerb`, `Stream`, `Raw`, and `BasicAuth`, and stops there. An API
-written to [Servant API Design](./servant-routes.md) — `NamedRoutes` records of
-`MultiVerb` endpoints, auth combinators on the fields that need them — **does not
-compile** against it. The failures are compile errors at the middleware call site, not
-silent gaps:
-
-```text
-• No instance for ‘HasEndpoint (MultiVerb GET '[JSON] GetWidgetResponses GetWidgetResult)’
-    arising from a use of ‘openTelemetryServantMiddleware’
-• No instance for ‘HasEndpoint (AuthProtect "service-jwt" :> NamedRoutes WidgetApi)’
-    arising from a use of ‘openTelemetryServantMiddleware’
-```
-
-Until upstream ships them, each service carries both instances in one orphan module —
-say `Service.Telemetry.Orphans` — imported wherever the middleware is constructed. Put
-them in exactly one module per service so a future upstream release produces one
-duplicate-instance error to delete, not a scattered hunt.
-
-```haskell
-{-# OPTIONS_GHC -Wno-orphans #-}
-
-module Service.Telemetry.Orphans () where
-
-import Data.Proxy (Proxy (..))
-import Network.Wai (pathInfo, requestMethod)
-import OpenTelemetry.Instrumentation.Servant.Internal
-  ( HasEndpoint (..),
-    ServantEndpoint (..),
-  )
-import Servant.API (AuthProtect, ReflectMethod (reflectMethod), type (:>))
-import Servant.API.MultiVerb (MultiVerb)
-
--- Mirrors the upstream 'Verb' instance: match only when no path segments remain,
--- so a non-matching alternative still falls through to its siblings.
-instance (ReflectMethod method) => HasEndpoint (MultiVerb method cs as r) where
-  getEndpoint _ req =
-    case pathInfo req of
-      [] | requestMethod req == m -> Just (ServantEndpoint m [])
-      _ -> Nothing
-    where
-      m = reflectMethod (Proxy :: Proxy method)
-
--- Auth contributes no path segment, exactly like the upstream 'BasicAuth' instance.
-instance (HasEndpoint sub) => HasEndpoint (AuthProtect tag :> sub) where
-  getEndpoint _ = getEndpoint (Proxy :: Proxy sub)
-```
-
-The `MultiVerb` instance must return `Nothing` when segments remain. Alternatives are
-tried left to right with `mplus`, so an instance that matched unconditionally would
-claim requests belonging to later routes.
-
-The `type (:>)` import needs `ExplicitNamespaces`, which the fleet's `GHC2024` default
-language supplies. On `GHC2021` the same line is a parse error; import `(:>)` without
-the namespace keyword there.
+Both are upstreamable as-is and the branch is kept PR-ready; the fork exists because we
+could not wait, not because we intend to diverge. Every gap it fixes, and the two it
+deliberately does not, are recorded in the corpus project's
+`mori/upstream-issues.dhall`. Re-check that catalog before upgrading the pin.
 
 Pass the same `Proxy` you pass to `serve`/`serveWithContext`. If the umbrella record
 mounts the service under a prefix, the proxy must carry that prefix too, or nothing
@@ -372,6 +318,13 @@ literal, so the route is `static` for every asset beneath it — bounded cardina
 is what you want from a static mount anyway. A bare root-level `Raw` used as an SPA
 fallback is the case to avoid: it collapses the routes declared after it into the empty
 route.
+
+The fork deliberately leaves this alone. The unconditional match mirrors servant's own
+routing, where a `Raw` alternative likewise consumes everything reaching it, so only the
+empty route string is clearly wrong. Convention costs nothing here; a patch would need a
+judgement call about what an empty route should become. If a service ever genuinely needs
+a bare root-level `Raw`, reopen it — that is the trigger recorded against
+`hs-opentelemetry-instrumentation-servant-raw-empty-route` in the corpus catalog.
 
 ## Pass the Same Tracer into Keiro
 
