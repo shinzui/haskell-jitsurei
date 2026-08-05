@@ -246,8 +246,10 @@ source-repository-package
   tag: 5e99a7857032484abc669076704dee4335e7d0ad
 ```
 
-That commit is the tip of `feat/multiverb-authprotect-and-api-1.0`, two commits ahead of
-upstream `04141b2b`:
+That commit is the tip of the fork's `main`, two commits ahead of upstream `04141b2b`.
+Pin the commit rather than the branch name so an upgrade is a deliberate edit. The same
+two commits are kept on `feat/multiverb-authprotect-and-api-1.0` as the PR-ready branch
+against upstream:
 
 - `HasEndpoint` instances for `MultiVerb` and `AuthProtect`. Upstream's instance list
   reaches `Verb`, `NoContentVerb`, `UVerb`, `Stream`, `Raw`, and `BasicAuth` and stops
