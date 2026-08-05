@@ -2,7 +2,7 @@
 type: Standard
 title: "OpenTelemetry Integration for Servant Services"
 description: "Wire one OpenTelemetry SDK lifecycle through WAI, Servant route naming, Keiro, and the outbox"
-timestamp: 2026-08-05T05:39:05-07:00
+timestamp: 2026-08-05T06:25:37-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-opentelemetry-integration
 tags: [api, servant, opentelemetry, tracing, metrics, wai, keiro, http-route]
 status: current
@@ -338,9 +338,13 @@ Attach the middleware and a request to `/widgets/9f2c1b` produces a span named
 
 Three consequences are worth knowing before dashboards are written against this data.
 
-The route has **no leading slash**, and the span name the WAI layer builds from it is
-`<METHOD> <route>` — so `GET widgets/:widgetId`, where the semantic conventions would
-write `GET /widgets/{widgetId}`. Match on what is actually emitted.
+The route format is servant-shaped: `:name` placeholders and **no leading slash**, so the
+span name the WAI layer builds is `GET widgets/:widgetId` rather than the
+`GET /widgets/{widgetId}` form most backend documentation shows. This is conformant —
+the `http.route` convention requires only low cardinality with static segments preserved
+and dynamic ones replaced, and explicitly permits custom route formatting provided the
+instrumentation documents it (this section is that documentation). But it does mean
+queries, dashboards, and alert rules must match what is actually emitted.
 
 `http.method` is the **legacy** attribute name. Under
 `OTEL_SEMCONV_STABILITY_OPT_IN=http` the WAI middleware emits only stable names, but
