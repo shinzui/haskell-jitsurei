@@ -2,7 +2,7 @@
 type: Standard
 title: "Production Request Logging"
 description: "Emit bounded structured WAI request logs with trace correlation and strict data minimization"
-timestamp: 2026-07-24T15:48:14-07:00
+timestamp: 2026-08-05T05:39:05-07:00
 resource: mori://shinzui/haskell-jitsurei/docs/api-request-logging
 tags: [api, wai, logging, opentelemetry, security, observability]
 status: current
@@ -166,6 +166,12 @@ otelMiddleware (requestLogMiddleware defaultRequestLogPredicate servantApp)
 -- WRONG: no WAI span exists when the logger runs.
 requestLogMiddleware defaultRequestLogPredicate (otelMiddleware servantApp)
 ```
+
+A Servant service also runs `openTelemetryServantMiddleware` between the two, so the
+full stack is `otelMiddleware (openTelemetryServantMiddleware provider api
+(requestLogMiddleware ... servantApp))`. That layer only annotates the existing span, so
+it changes nothing this logger reads; see [OpenTelemetry
+Integration](./opentelemetry-integration.md) for its pin and required instances.
 
 With an incoming header:
 

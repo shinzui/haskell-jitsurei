@@ -7,7 +7,7 @@
 - [Kubernetes Health Endpoints](health-endpoints.md) - Separate in-process liveness from dependency-aware readiness in Servant services
 - [Black-Box API Integration Testing with Hurl](hurl-integration-testing.md) - Exercise a live Haskell HTTP service with resource-family Hurl suites, explicit assertions, and isolated opt-in scenarios
 - [Generating the OpenAPI Document from Servant Types](openapi-from-types.md) - Derive OpenAPI 3.1 from Servant route types and enforce the generated artifact in CI
-- [OpenTelemetry Integration for Servant Services](opentelemetry-integration.md) - Wire one OpenTelemetry SDK lifecycle through WAI, Servant, Keiro, and the outbox
+- [OpenTelemetry Integration for Servant Services](opentelemetry-integration.md) - Wire one OpenTelemetry SDK lifecycle through WAI, Servant route naming, Keiro, and the outbox
 - [Relay Pagination for List Endpoints](relay-pagination.md) - Implement typed Relay cursor pagination with keyset SQL and conformance tests
 - [Production Request Logging](request-logging.md) - Emit bounded structured WAI request logs with trace correlation and strict data minimization
 - [RFC 9457 Problem Details for Error Bodies](rfc9457-problem-details.md) - Standardize Servant error responses on application/problem+json with stable extension fields

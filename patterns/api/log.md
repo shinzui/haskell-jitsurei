@@ -1,5 +1,9 @@
 # api Update Log
 
+## 2026-08-05
+* **Adoption**: opentelemetry-integration now requires `cachix/hs-opentelemetry-instrumentation-servant` 0.3.0.0 in every Servant service — without it the WAI middleware names every server span after the bare HTTP method and its `http.server.*` metrics carry no route dimension; records the Git pin (not on Hackage, no 0.3.0.0 tag), the `allow-newer` needed against the 1.0.0.0 cohort, the `HasEndpoint` orphan instances for `MultiVerb` and `AuthProtect` that fleet-shaped APIs will not compile without, the emitted attributes and their deviations from the semantic conventions, and the unconditional-match trap in the `Raw` instance
+* **Consistency**: request-logging points at the servant middleware layer that now sits between the WAI middleware and the request logger; the api overview names route naming as part of what the OpenTelemetry standard owns
+
 ## 2026-07-30
 * **Addition**: Added a Hurl black-box integration-testing standard based on the Mori API suite: resource-family files, an explicit read-only default runner, status/media/shape and negative assertions, capture-based workflows, isolated stateful and perimeter suites, entry-level retries for eventual consistency, precomputed signed bodies, secret handling, and CI lifecycle guidance
 

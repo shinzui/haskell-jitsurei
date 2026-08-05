@@ -268,7 +268,7 @@ in  Schema.Project::{ project =
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.Module
         , description = Some
-            "OpenTelemetry 1.0 service integration: bracket the SDK providers, run with -threaded, put WAI instrumentation outside request logging, share its tracer with keiro, and preserve trace context through the transactional outbox"
+            "OpenTelemetry 1.0 service integration: bracket the SDK providers, run with -threaded, put WAI instrumentation outside request logging, name spans by Servant route with hs-opentelemetry-instrumentation-servant, share its tracer with keiro, and preserve trace context through the transactional outbox"
         , location =
             Schema.DocLocation.LocalFile
               "patterns/api/opentelemetry-integration.md"
