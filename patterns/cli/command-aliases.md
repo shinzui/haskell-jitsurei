@@ -2,7 +2,10 @@
 type: Pattern
 title: "Command Aliases via Config File"
 description: "Expand user-defined CLI aliases safely before optparse-applicative parsing"
-timestamp: 2026-03-16T21:16:42-07:00
+timestamp: 2026-03-17T04:16:42Z
+generated:
+  by: human:nadeem
+  at: 2026-03-17T04:16:42Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-command-aliases
 tags: [cli, aliases, yaml, optparse-applicative, configuration]
 status: current

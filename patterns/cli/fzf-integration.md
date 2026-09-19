@@ -2,7 +2,10 @@
 type: Pattern
 title: "FZF Integration for Interactive CLI Selection"
 description: "Integrate fzf as a composable interactive selector for Haskell CLIs"
-timestamp: 2026-03-12T11:11:43-07:00
+timestamp: 2026-03-12T18:11:43Z
+generated:
+  by: human:nadeem
+  at: 2026-03-12T18:11:43Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-fzf-integration
 tags: [cli, fzf, interactive, selection, process]
 status: current

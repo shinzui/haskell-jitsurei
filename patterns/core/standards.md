@@ -2,7 +2,10 @@
 type: Standard
 title: "Haskell Core Standards"
 description: "Baseline GHC, language-edition, extension, import, and record conventions for Haskell projects"
-timestamp: 2026-07-24T09:56:04-07:00
+timestamp: 2026-07-24T16:56:04Z
+generated:
+  by: human:nadeem
+  at: 2026-07-24T16:56:04Z
 resource: mori://shinzui/haskell-jitsurei/docs/core-standards
 tags: [core, haskell, ghc-9.12, ghc2024, cabal, standards]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T09:56:04-07:00
-    document_timestamp: 2026-07-24T09:56:04-07:00
+    document_timestamp: 2026-07-24T16:56:04Z
     scope: technical-accuracy
     outcome: approved
     provider: anthropic

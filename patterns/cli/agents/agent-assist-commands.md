@@ -2,7 +2,10 @@
 type: Pattern
 title: "Agent Assist Commands"
 description: "Expose live project context to coding agents through inspectable CLI commands"
-timestamp: 2026-03-26T07:05:37-07:00
+timestamp: 2026-03-26T14:05:37Z
+generated:
+  by: human:nadeem
+  at: 2026-03-26T14:05:37Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-agent-assist-commands
 tags: [cli, agents, context, prompts, automation, assistant]
 status: current

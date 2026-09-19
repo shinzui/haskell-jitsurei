@@ -2,7 +2,10 @@
 type: Standard
 title: "Production Request Logging"
 description: "Emit bounded structured WAI request logs with trace correlation and strict data minimization"
-timestamp: 2026-08-05T05:39:05-07:00
+timestamp: 2026-08-05T12:39:05Z
+generated:
+  by: human:nadeem
+  at: 2026-08-05T12:39:05Z
 resource: mori://shinzui/haskell-jitsurei/docs/api-request-logging
 tags: [api, wai, logging, opentelemetry, security, observability]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T15:48:14-07:00
-    document_timestamp: 2026-07-24T15:48:14-07:00
+    document_timestamp: 2026-07-24T22:48:14Z
     scope: technical-accuracy
     outcome: approved
     provider: anthropic

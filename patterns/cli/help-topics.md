@@ -2,7 +2,10 @@
 type: Pattern
 title: "CLI Help Topics with file-embed"
 description: "Ship standalone Markdown help topics inside an optparse-applicative executable"
-timestamp: 2026-04-25T14:04:29-07:00
+timestamp: 2026-04-25T21:04:29Z
+generated:
+  by: human:nadeem
+  at: 2026-04-25T21:04:29Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-help-topics
 tags: [cli, help, file-embed, optparse-applicative, markdown]
 status: current

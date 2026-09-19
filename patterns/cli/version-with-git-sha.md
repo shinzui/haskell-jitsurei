@@ -2,7 +2,10 @@
 type: Pattern
 title: "Embedding Git SHA in CLI Version Output"
 description: "Embed a Git revision in local Cabal and reproducible Nix version output"
-timestamp: 2026-03-09T07:57:42-07:00
+timestamp: 2026-03-09T14:57:42Z
+generated:
+  by: human:nadeem
+  at: 2026-03-09T14:57:42Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-version-git-sha
 tags: [cli, version, git, cabal, nix, template-haskell]
 status: current

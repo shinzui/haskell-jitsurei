@@ -2,7 +2,10 @@
 type: Overview
 title: "Haskell CLI patterns"
 description: "Interaction, configuration, help, completion, distribution, and coding-agent patterns for Haskell CLIs"
-timestamp: 2026-07-24T06:57:34-07:00
+timestamp: 2026-07-24T13:57:34Z
+generated:
+  by: human:nadeem
+  at: 2026-07-24T13:57:34Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-overview
 tags: [cli, haskell, patterns, optparse-applicative, agents]
 status: current

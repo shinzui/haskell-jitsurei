@@ -2,7 +2,10 @@
 type: Pattern
 title: "Multiline String Literals"
 description: "Use GHC 9.12 MultilineStrings for readable indentation-aware embedded text"
-timestamp: 2026-07-24T09:56:04-07:00
+timestamp: 2026-07-24T16:56:04Z
+generated:
+  by: human:nadeem
+  at: 2026-07-24T16:56:04Z
 resource: mori://shinzui/haskell-jitsurei/docs/core-multiline-strings
 tags: [core, haskell, ghc-9.12, multiline-strings, text]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T09:56:04-07:00
-    document_timestamp: 2026-07-24T09:56:04-07:00
+    document_timestamp: 2026-07-24T16:56:04Z
     scope: technical-accuracy
     outcome: approved
     provider: anthropic

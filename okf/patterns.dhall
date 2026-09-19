@@ -2,8 +2,8 @@
 -- This wrapper gives the consumed profile a repository-specific name without
 -- forking its field requirements, type vocabulary, or path rules.
 let profiles =
-      https://raw.githubusercontent.com/shinzui/okf-profiles/v0.2.0/package.dhall
-        sha256:88441b239d99b3dd1cd3e641c882de1c401849e26504c5d76d3da106436034d6
+      https://raw.githubusercontent.com/shinzui/okf-profiles/v0.18.0/package.dhall
+        sha256:7d3a4a22be12fd0e697d6012ed1eb2efe4cb5dc4700d08fd49aa5e4c0e523df8
 
 in  profiles.documentation.patternCatalog
   with name = "haskell-jitsurei-pattern-catalog"

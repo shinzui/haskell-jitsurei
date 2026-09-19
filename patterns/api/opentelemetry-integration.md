@@ -2,7 +2,10 @@
 type: Standard
 title: "OpenTelemetry Integration for Servant Services"
 description: "Wire one OpenTelemetry SDK lifecycle through WAI, Servant route naming, Keiro, and the outbox"
-timestamp: 2026-08-05T07:02:52-07:00
+timestamp: 2026-08-05T14:02:52Z
+generated:
+  by: human:nadeem
+  at: 2026-08-05T14:02:52Z
 resource: mori://shinzui/haskell-jitsurei/docs/api-opentelemetry-integration
 tags: [api, servant, opentelemetry, tracing, metrics, wai, keiro, http-route]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T07:39:31-07:00
-    document_timestamp: 2026-07-24T07:39:31-07:00
+    document_timestamp: 2026-07-24T14:39:31Z
     scope: technical-accuracy
     outcome: approved
     provider: anthropic

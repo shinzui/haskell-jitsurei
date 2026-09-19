@@ -2,7 +2,10 @@
 type: Standard
 title: "Servant API Design"
 description: "Organize Servant APIs as vertical NamedRoutes slices with typed MultiVerb responses"
-timestamp: 2026-07-24T10:28:01-07:00
+timestamp: 2026-07-24T17:28:01Z
+generated:
+  by: human:nadeem
+  at: 2026-07-24T17:28:01Z
 resource: mori://shinzui/haskell-jitsurei/docs/api-servant-routes
 tags: [api, servant, named-routes, multiverb, vertical-slices, errors]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T10:28:01-07:00
-    document_timestamp: 2026-07-24T10:28:01-07:00
+    document_timestamp: 2026-07-24T17:28:01Z
     scope: technical-accuracy
     outcome: approved
     provider: anthropic

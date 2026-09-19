@@ -2,7 +2,10 @@
 type: Standard
 title: "RFC 9457 Problem Details for Error Bodies"
 description: "Standardize Servant error responses on application/problem+json with stable extension fields"
-timestamp: 2026-07-24T10:28:01-07:00
+timestamp: 2026-07-24T17:28:01Z
+generated:
+  by: human:nadeem
+  at: 2026-07-24T17:28:01Z
 resource: mori://shinzui/haskell-jitsurei/docs/api-rfc9457-problem-details
 tags: [api, servant, errors, rfc9457, rfc7807, problem-details]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T10:28:01-07:00
-    document_timestamp: 2026-07-24T10:28:01-07:00
+    document_timestamp: 2026-07-24T17:28:01Z
     scope: technical-accuracy
     outcome: approved
     provider: anthropic

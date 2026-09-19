@@ -2,7 +2,10 @@
 type: Standard
 title: "Relay Pagination for List Endpoints"
 description: "Implement typed Relay cursor pagination with keyset SQL and conformance tests"
-timestamp: 2026-07-24T15:48:14-07:00
+timestamp: 2026-07-24T22:48:14Z
+generated:
+  by: human:nadeem
+  at: 2026-07-24T22:48:14Z
 resource: mori://shinzui/haskell-jitsurei/docs/api-relay-pagination
 tags: [api, servant, relay, pagination, cursor, keyset, hasql]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T15:48:14-07:00
-    document_timestamp: 2026-07-24T15:48:14-07:00
+    document_timestamp: 2026-07-24T22:48:14Z
     scope: technical-accuracy
     outcome: approved
     provider: anthropic

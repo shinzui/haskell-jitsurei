@@ -2,7 +2,10 @@
 type: Standard
 title: "Black-Box API Integration Testing with Hurl"
 description: "Exercise a live Haskell HTTP service with resource-family Hurl suites, explicit assertions, and isolated opt-in scenarios"
-timestamp: 2026-07-30T16:01:13-07:00
+timestamp: 2026-07-30T23:01:13Z
+generated:
+  by: human:nadeem
+  at: 2026-07-30T23:01:13Z
 resource: mori://shinzui/haskell-jitsurei/docs/api-hurl-integration-testing
 tags: [api, integration-testing, hurl, black-box, http, servant, ci]
 status: current

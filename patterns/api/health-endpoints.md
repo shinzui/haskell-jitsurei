@@ -2,7 +2,10 @@
 type: Standard
 title: "Kubernetes Health Endpoints"
 description: "Separate in-process liveness from dependency-aware readiness in Servant services"
-timestamp: 2026-07-24T15:48:14-07:00
+timestamp: 2026-07-24T22:48:14Z
+generated:
+  by: human:nadeem
+  at: 2026-07-24T22:48:14Z
 resource: mori://shinzui/haskell-jitsurei/docs/api-health-endpoints
 tags: [api, servant, kubernetes, health, liveness, readiness, servant-health]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T15:48:14-07:00
-    document_timestamp: 2026-07-24T15:48:14-07:00
+    document_timestamp: 2026-07-24T22:48:14Z
     scope: technical-accuracy
     outcome: approved
     provider: anthropic

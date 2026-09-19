@@ -1,5 +1,8 @@
 # Haskell Patterns Update Log
 
+## 2026-09-19
+* **Migration**: Moved the bundle to OKF v0.2 and okf-profiles v0.18.0: added `generated` provenance from each document's timestamp and Git author, and normalized `timestamp` and review `document_timestamp` values to UTC without changing their instants
+
 ## 2026-07-30
 * **Navigation**: Added black-box API integration testing with Hurl to the task-oriented API route
 

@@ -2,7 +2,10 @@
 type: Pattern
 title: "Skill and Agent Registry"
 description: "Distribute versioned coding-agent skills and subagents through a provider-neutral kit repository"
-timestamp: 2026-06-12T15:47:13-07:00
+timestamp: 2026-06-12T22:47:13Z
+generated:
+  by: human:nadeem
+  at: 2026-06-12T22:47:13Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-skill-and-agent-registry
 tags: [cli, agents, skills, registry, kit, distribution]
 status: current

@@ -2,7 +2,10 @@
 type: Pattern
 title: "Command Aliases via KDL Config File"
 description: "Expand KDL-defined CLI aliases safely before optparse-applicative parsing"
-timestamp: 2026-04-30T07:58:53-07:00
+timestamp: 2026-04-30T14:58:53Z
+generated:
+  by: human:nadeem
+  at: 2026-04-30T14:58:53Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-command-aliases-kdl
 tags: [cli, aliases, kdl, optparse-applicative, configuration]
 status: current

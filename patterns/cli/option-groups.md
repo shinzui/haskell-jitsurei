@@ -2,7 +2,10 @@
 type: Pattern
 title: "Option Groups for Organized --help Output"
 description: "Group optparse-applicative flags into readable labeled help sections"
-timestamp: 2026-03-14T11:42:58-07:00
+timestamp: 2026-03-14T18:42:58Z
+generated:
+  by: human:nadeem
+  at: 2026-03-14T18:42:58Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-option-groups
 tags: [cli, help, optparse-applicative, options, ux]
 status: current

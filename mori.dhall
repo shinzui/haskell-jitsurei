@@ -24,7 +24,7 @@ in  Schema.Project::{ project =
       [ Schema.OkfBundle::{ name = "patterns"
         , path = "patterns"
         , profile = Some "okf/patterns.dhall"
-        , okfVersion = "0.1"
+        , okfVersion = "0.2"
         , description = Some
             "Haskell standards and implementation patterns for humans and coding agents"
         }

@@ -2,7 +2,10 @@
 type: Standard
 title: "Review and Change Provenance"
 description: "Record material changes and timestamp-bound human and model reviews for every pattern"
-timestamp: 2026-07-24T07:18:21-07:00
+timestamp: 2026-09-19T15:32:14Z
+generated:
+  by: human:nadeem
+  at: 2026-09-19T15:32:14Z
 resource: mori://shinzui/haskell-jitsurei/docs/governance-review-policy
 tags: [governance, review, provenance, changelog, agents, okf]
 status: current
@@ -87,8 +90,10 @@ This fails until every current concept has a current human approval.
 
 ## Lifecycle and selection
 
-Use `status: current` for advice recommended for new work, `status: legacy` for
-advice retained only for existing adopters, and `status: retired` when the body
-exists solely for historical context. A legacy or retired document must explain
-the replacement near the top of its body and should use `supersedes` or body
-links to make the new route discoverable.
+Use `status: current` for advice recommended for new work and
+`status: deprecated` for advice retained only for existing adopters or kept
+solely for historical context; these are the two values the shared
+pattern-catalog profile accepts. A deprecated document must explain whether it
+still serves existing adopters and name the replacement near the top of its
+body, and should use `supersedes` or body links to make the new route
+discoverable.

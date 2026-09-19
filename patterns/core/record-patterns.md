@@ -2,7 +2,10 @@
 type: Pattern
 title: "Record Patterns"
 description: "Define and manipulate records with Generic Lens and overloaded labels"
-timestamp: 2026-07-24T09:59:51-07:00
+timestamp: 2026-07-24T16:59:51Z
+generated:
+  by: human:nadeem
+  at: 2026-07-24T16:59:51Z
 resource: mori://shinzui/haskell-jitsurei/docs/core-record-patterns
 tags: [core, haskell, records, generic-lens, overloaded-labels]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T09:59:51-07:00
-    document_timestamp: 2026-07-24T09:59:51-07:00
+    document_timestamp: 2026-07-24T16:59:51Z
     scope: technical-accuracy
     outcome: approved
     provider: anthropic

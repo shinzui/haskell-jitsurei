@@ -2,7 +2,10 @@
 type: Pattern
 title: "Terminal-Aware Help Output Width"
 description: "Render help topics at a readable terminal width while keeping piped output byte-stable"
-timestamp: 2026-04-25T14:04:29-07:00
+timestamp: 2026-04-25T21:04:29Z
+generated:
+  by: human:nadeem
+  at: 2026-04-25T21:04:29Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-help-width
 tags: [cli, help, terminal, width, text-wrapping, tty]
 status: current

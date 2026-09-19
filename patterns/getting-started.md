@@ -2,7 +2,10 @@
 type: Navigation
 title: "Find the right Haskell pattern"
 description: "Task-oriented routes into the Haskell standards, API conventions, CLI patterns, and agent guidance"
-timestamp: 2026-07-30T16:01:13-07:00
+timestamp: 2026-07-30T23:01:13Z
+generated:
+  by: human:nadeem
+  at: 2026-07-30T23:01:13Z
 resource: mori://shinzui/haskell-jitsurei/docs/patterns-getting-started
 tags: [navigation, haskell, patterns, standards, discovery]
 status: current

@@ -2,7 +2,10 @@
 type: Pattern
 title: "Shell Completion Generation"
 description: "Generate Bash, Zsh, and Fish completions from optparse-applicative parsers"
-timestamp: 2026-03-12T11:33:00-07:00
+timestamp: 2026-03-12T18:33:00Z
+generated:
+  by: human:nadeem
+  at: 2026-03-12T18:33:00Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-shell-completions
 tags: [cli, completions, bash, zsh, fish, optparse-applicative]
 status: current

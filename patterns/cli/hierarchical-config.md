@@ -2,10 +2,13 @@
 type: Pattern
 title: "Hierarchical Config with Dhall"
 description: "Layer user and project Dhall configuration for legacy CLIs; superseded by Settei for new work"
-timestamp: 2026-07-22T12:43:31-07:00
+timestamp: 2026-09-19T15:32:14Z
+generated:
+  by: human:nadeem
+  at: 2026-09-19T15:32:14Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-hierarchical-config
 tags: [cli, configuration, dhall, layering, legacy, settei]
-status: legacy
+status: deprecated
 ---
 
 # Hierarchical Config with Dhall

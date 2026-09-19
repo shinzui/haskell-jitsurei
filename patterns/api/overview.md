@@ -2,7 +2,10 @@
 type: Overview
 title: "Servant API patterns"
 description: "Prescriptive route, response, contract, integration testing, observability, pagination, and health conventions"
-timestamp: 2026-08-05T05:39:05-07:00
+timestamp: 2026-08-05T12:39:05Z
+generated:
+  by: human:nadeem
+  at: 2026-08-05T12:39:05Z
 resource: mori://shinzui/haskell-jitsurei/docs/api-overview
 tags: [api, servant, standards, openapi, integration-testing, hurl, observability]
 status: current
@@ -10,7 +13,7 @@ reviews:
   - kind: model
     reviewer: claude-code
     reviewed_at: 2026-07-24T10:28:01-07:00
-    document_timestamp: 2026-07-24T10:28:01-07:00
+    document_timestamp: 2026-07-24T17:28:01Z
     scope: content
     outcome: approved
     provider: anthropic

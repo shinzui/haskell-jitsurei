@@ -2,7 +2,10 @@
 type: Pattern
 title: "Stdin Integration for CLI Commands"
 description: "Resolve CLI text input through arguments, piped stdin, files, editors, and prompts"
-timestamp: 2026-03-09T08:00:34-07:00
+timestamp: 2026-03-09T15:00:34Z
+generated:
+  by: human:nadeem
+  at: 2026-03-09T15:00:34Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-stdin-integration
 tags: [cli, stdin, piping, editor, input]
 status: current

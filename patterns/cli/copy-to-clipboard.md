@@ -2,7 +2,10 @@
 type: Pattern
 title: "Copy Command Result to System Clipboard"
 description: "Add an opt-in clipboard side channel without breaking stdout composition"
-timestamp: 2026-04-22T11:53:13-07:00
+timestamp: 2026-04-22T18:53:13Z
+generated:
+  by: human:nadeem
+  at: 2026-04-22T18:53:13Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-copy-to-clipboard
 tags: [cli, clipboard, stdout, macos, linux, process]
 status: current

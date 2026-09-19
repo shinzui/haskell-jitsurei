@@ -2,7 +2,10 @@
 type: Pattern
 title: "Per-Command Agent Configuration"
 description: "Resolve provider, model, and reasoning effort per subcommand through one provenance-tracked precedence chain"
-timestamp: 2026-07-20T12:23:48-07:00
+timestamp: 2026-07-20T19:23:48Z
+generated:
+  by: human:nadeem
+  at: 2026-07-20T19:23:48Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-per-command-agent-config
 tags: [cli, agents, provider, model, reasoning, configuration, baikai]
 status: current

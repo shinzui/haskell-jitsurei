@@ -2,7 +2,10 @@
 type: Gotcha
 title: "Invoking the claude CLI as a Subprocess"
 description: "Avoid prompt swallowing, hangs, and regressions when a Haskell CLI invokes Claude Code"
-timestamp: 2026-05-15T09:45:12-07:00
+timestamp: 2026-05-15T16:45:12Z
+generated:
+  by: human:nadeem
+  at: 2026-05-15T16:45:12Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-claude-cli-pitfalls
 tags: [cli, agents, claude, subprocess, add-dir, testing]
 status: current
