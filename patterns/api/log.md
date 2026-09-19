@@ -1,5 +1,8 @@
 # api Update Log
 
+## 2026-09-19
+* **Update**: Promoted Kubernetes Health Endpoints to an assessable standard (PAT-1) with four stable criteria drawn from its existing requirements
+
 ## 2026-08-05
 * **Adoption**: opentelemetry-integration now requires `hs-opentelemetry-instrumentation-servant` in every Servant service — without it the WAI middleware names every server span after the bare HTTP method and its `http.server.*` metrics carry no route dimension; records the emitted attributes and their servant-shaped `http.route` format (conformant under the convention's custom-formatting latitude, but not the `/widgets/{id}` form backend documentation shows), and the unconditional-match trap in the `Raw` instance
 * **Fork**: the pin is `mori://shinzui/hs-opentelemetry-instrumentation-servant`, not cachix upstream. Upstream 0.3.0.0 has no `HasEndpoint` instance for `MultiVerb` or `AuthProtect`, so an API written to servant-routes does not compile at the middleware call site, and its `hs-opentelemetry-api ==0.3.*` bound excludes this standard's cohort. The fork adds both instances plus a test suite and widens the bound, so no `allow-newer` and no per-service orphan module are needed; the `Raw` empty-route and legacy `http.method` behaviours were deliberately left alone. All six gaps are catalogued in the corpus project's `mori/upstream-issues.dhall`, and the branch is kept PR-ready

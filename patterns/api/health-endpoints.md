@@ -1,14 +1,50 @@
 ---
-type: Standard
+type: Assessable Standard
 title: "Kubernetes Health Endpoints"
 description: "Separate in-process liveness from dependency-aware readiness in Servant services"
-timestamp: 2026-07-24T22:48:14Z
+timestamp: 2026-09-19T15:33:29Z
 generated:
   by: human:nadeem
-  at: 2026-07-24T22:48:14Z
+  at: 2026-09-19T15:33:29Z
 resource: mori://shinzui/haskell-jitsurei/docs/api-health-endpoints
 tags: [api, servant, kubernetes, health, liveness, readiness, servant-health]
 status: current
+patternId: PAT-1
+applicability:
+  scope: >-
+    Haskell Servant HTTP services that an orchestrator such as Kubernetes probes
+    for liveness and readiness before routing traffic to them.
+  languages: [haskell]
+  dependenciesAny:
+    - mori://haskell-servant/servant
+    - mori://shinzui/servant-health
+criteria:
+  - id: separate-live-and-ready
+    statement: >-
+      The service mounts servant-health's HealthApi under /health, serving
+      /health/live and /health/ready as independent probes whose failures do
+      not affect each other.
+    evidenceKind: test
+    severity: required
+  - id: probe-contract-tested
+    statement: >-
+      The service's test suite runs servant-health:testkit's
+      probeContractTests against its real application wiring.
+    evidenceKind: test
+    severity: required
+  - id: dependency-sensitive-readiness
+    statement: >-
+      Readiness checks exactly the dependencies this pod needs to serve its
+      contracted requests, such as its database pool and subscription lag, and
+      never a downstream service or broker merely because the process calls it.
+    evidenceKind: review
+    severity: required
+  - id: liveness-in-process
+    statement: >-
+      Liveness answers only whether the process can make progress, within a
+      bounded timeout, and never depends on an external system.
+    evidenceKind: review
+    severity: required
 reviews:
   - kind: model
     reviewer: claude-code
