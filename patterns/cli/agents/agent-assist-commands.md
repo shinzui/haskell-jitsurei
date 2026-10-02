@@ -1,13 +1,13 @@
 ---
 type: Pattern
 title: "Agent Assist Commands"
-description: "Expose live project context to coding agents through inspectable CLI commands"
-timestamp: 2026-03-26T14:05:37Z
+description: "Expose live project context through inspectable commands and launch coding sessions with Baikai and baikai-kit"
+timestamp: 2026-10-02T13:18:57Z
 generated:
   by: human:nadeem
   at: 2026-03-26T14:05:37Z
 resource: mori://shinzui/haskell-jitsurei/docs/cli-agent-assist-commands
-tags: [cli, agents, context, prompts, automation, assistant]
+tags: [cli, agents, context, prompts, automation, assistant, baikai, kit]
 status: current
 ---
 
@@ -23,10 +23,14 @@ AI coding assistants (Claude Code, Cursor, etc.) work best when they understand 
 
 Build CLI commands that **query live project state** and **assemble a structured system prompt**, then either:
 
-1. **Launch an AI session** with that prompt injected (`--append-system-prompt`)
+1. **Launch an AI session** through Baikai with the assembled context
 2. **Print the prompt** for debugging or piping into other tools (`--debug` flag)
 
 The CLI becomes a context bridge between your project's runtime knowledge and the AI assistant.
+Use [Baikai's interactive launchers](mori://shinzui/baikai/docs/interactive-launches)
+for terminal sessions and [baikai-kit](skill-and-agent-registry.md) for installed
+asset discovery. Keep context assembly in the application and provider argument
+construction in Baikai.
 
 ## Architecture
 
@@ -113,34 +117,69 @@ Key prompt design principles:
 - **Actionable references** — commands the AI can run, files it can read
 - **Minimal but sufficient** — every token costs context window space
 
-### 4. Tool Permissions (Allowlists)
+### 4. Provider-specific launch policy
 
-When launching an AI session, scope the tools it can use. Different commands warrant different permission sets:
-
-```
-# Bootstrap: needs to create files, run init commands
-allowedTools = ["Write", "Bash(mycli init)", "Bash(mycli validate)", ...]
-
-# Assist: needs build tools, git, broader access
-allowedTools = ["Edit", "Bash(cabal build *)", "Bash(git *)", ...]
-```
-
-This is defense-in-depth — the AI session gets only the tools relevant to its task.
+Resolve provider, model, and effort using
+[Per-Command Agent Configuration](per-command-agent-config.md). Express launch
+policy through `InteractiveSafety`: `ClaudeAllowedTools` for Claude or
+`CodexSandbox` with an explicit approval policy for Codex. The launchers refuse
+a policy the selected provider cannot express before starting a process.
+Handle that `Left`; do not turn refusal into an unrestricted retry.
 
 ### 5. AI Session Launch
 
-Spawn the AI CLI as a subprocess with the assembled prompt:
+Build a request through `interactiveLaunchRequest`, attach kit assets, and
+dispatch to `launchClaudeInteractive` or `launchCodexInteractive`:
 
-```
-claude --permission-mode acceptEdits \
-       --allowedTools "Read" "Edit" "Write" "Bash(mycli *)" \
-       --append-system-prompt "{prompt}"
+```haskell
+import Baikai.Interactive qualified as Interactive
+import Baikai.Kit qualified as Kit
+import Data.Text (Text)
+
+assistRequest
+  :: Kit.KitConfig
+  -> Interactive.InteractiveProvider
+  -> Interactive.InteractiveSafety
+  -> Text
+  -> Text
+  -> IO Interactive.InteractiveLaunchRequest
+assistRequest kitConfig provider launchSafety context prompt = do
+  let request = (Interactive.interactiveLaunchRequest prompt)
+        { Interactive.systemPrompt = Just context
+        , Interactive.safety = launchSafety
+        }
+  case provider of
+    Interactive.InteractiveClaude -> do
+      dirs <- Kit.agentDirsForSession kitConfig
+      pure request { Interactive.extraDirs = dirs }
+    Interactive.InteractiveCodex -> do
+      args <- Kit.codexSessionArgs kitConfig
+      pure request { Interactive.extraArgs = args }
 ```
 
-Key details:
-- Use `--append-system-prompt` (not `--system-prompt`) to add context without replacing the AI's base instructions
-- Forward Ctrl-C to the subprocess (`delegate_ctlc` / signal forwarding)
-- Propagate the subprocess exit code
+The Codex branch's `codexSessionArgs` requires the visibility implementation
+described in the kit pattern's [version boundary](skill-and-agent-registry.md#version-boundary).
+It is required on every Codex launch to re-enable tool-only kit skills;
+`--add-dir` alone grants access without loading them. Use the same kit config
+and project-root resolver for install and launch.
+
+`systemPrompt` is a Baikai request field with provider-specific semantics:
+Claude's interactive builder renders `--system-prompt`, while Codex includes
+the context before the user prompt. If preserving Claude's default instructions
+by appending is an application requirement, inspect the current launcher and
+use its supported argument escape hatch deliberately; do not assume the neutral
+field means `--append-system-prompt`.
+
+Baikai owns process launch and the `--` separator before a positional prompt,
+including the greedy-Claude-option workaround previously kept in a standalone
+pattern. Use its pure command builders to inspect the result. Interactive
+launchers return a render refusal or a launch result carrying the exit code;
+propagate the child exit code at the application's boundary.
+
+For a single returned response use `completeRequest`/`streamRequest`. For an
+unattended coding task that edits a workspace, use
+[Baikai's agent-run surface](mori://shinzui/baikai/docs/unattended-agent-runs).
+Those workflows have separate request and policy types.
 
 ## Variants
 
@@ -198,11 +237,11 @@ For CLI authors wanting to add agent assist commands:
 
 4. **Add a `--debug` flag** — prints the prompt to stdout instead of launching a session. Essential for iteration.
 
-5. **Scope tool permissions** — define allowlists per command variant. Only grant what's needed.
+5. **Select launch policy** — express the command's policy through the chosen provider's Baikai safety type.
 
 6. **Support pre-seeding** — accept CLI flags that skip interactive questions (e.g., `--namespace`, `--name`). Encode these as conditional sections in the prompt.
 
-7. **Wire up the subprocess** — launch the AI CLI with `--append-system-prompt`, forward signals, propagate exit codes.
+7. **Wire the Baikai launcher** — attach kit directories or Codex session arguments, handle render refusals, and propagate exit codes.
 
 8. **Add a JSON variant** — `agent context <role>` for programmatic access to the same data.
 
@@ -349,8 +388,8 @@ If you later need computed values (dates, counters), add a **helper registry** p
 
 | Approach | Pros | Cons |
 |----------|------|------|
-| **Inline Haskell strings** (mori) | Single file, no TH, direct string interpolation | Hard to read/edit large prompts, noisy diffs |
-| **File-embed templates** (rei) | Clean separation, markdown tooling works, non-Haskell contributors can edit | TH compile dependency, paths must stay in sync |
+| **Inline Haskell strings** | Single file, no TH, direct string interpolation | Hard to read/edit large prompts, noisy diffs |
+| **File-embed templates** | Clean separation, markdown tooling works, non-Haskell contributors can edit | TH compile dependency, paths must stay in sync |
 
 Both are valid. Start inline for short prompts (< 50 lines). Move to file-embed when prompts grow large or when you want non-developers to iterate on prompt wording.
 
@@ -364,12 +403,14 @@ Both are valid. Start inline for short prompts (< 50 lines). Move to file-embed 
 
 **Multiple roles**: If your project has different agent roles (developer, reviewer, ops), let the config declare them with include/exclude path patterns, and build role-specific context.
 
-## Example: Mori's Implementation
+## Example: Live context from Mori
 
-Mori implements this pattern across three commands:
+The command family in [Mori](mori://shinzui/mori) illustrates the context surfaces:
 
 - `mori agent assist` — launches Claude with full project context (config, conventions, deps, schema tools)
 - `mori agent bootstrap` — launches Claude to guide new project setup (workflow steps, schema reference, registry snapshot, examples)
 - `mori agent context <role>` — outputs JSON context for a configured agent role (paths, deps, standards, cookbooks)
 
-The context assembly queries a PostgreSQL registry for project/package data, loads Dhall configuration from disk, resolves dependency paths through the registry, and renders a structured schema catalog — all assembled into a single system prompt that gives Claude deep understanding of the project it's working in.
+Keep durable dependency references in generated context as canonical `mori://`
+URIs alongside any runtime-resolved local paths. The prompt remains useful across
+machines, while local paths let the current session read source directly.

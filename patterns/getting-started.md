@@ -2,7 +2,7 @@
 type: Navigation
 title: "Find the right Haskell pattern"
 description: "Task-oriented routes into the Haskell standards, API conventions, CLI patterns, and agent guidance"
-timestamp: 2026-07-30T23:01:13Z
+timestamp: 2026-10-02T13:18:57Z
 generated:
   by: human:nadeem
   at: 2026-07-30T23:01:13Z
@@ -54,8 +54,9 @@ Read [Haskell CLI patterns](cli/overview.md). Choose by user interaction:
 - distribution: [shell completions](cli/shell-completions.md) and
   [version output](cli/version-with-git-sha.md).
 
-The [layered Dhall configuration pattern](cli/hierarchical-config.md) is
-`legacy`; use it only for tools that already adopted that design.
+For configuration loading and diagnostics, use the
+[Settei CLI standard](mori://shinzui/keiro-runtime-patterns/docs/config-settei-cli-standard).
+The superseded layered-Dhall implementation has been removed from this catalog.
 
 ## Building agent-aware tooling
 
@@ -64,10 +65,13 @@ The agent-specific CLI patterns live under `cli/agents/`:
 - [Agent Assist Commands](cli/agents/agent-assist-commands.md) for live context;
 - [Per-Command Agent Configuration](cli/agents/per-command-agent-config.md) for
   provider, model, and reasoning selection;
-- [Skill and Agent Registry](cli/agents/skill-and-agent-registry.md) for
-  distributing reusable capabilities;
-- [Claude CLI subprocess gotchas](cli/agents/claude-cli-pitfalls.md) before
-  invoking Claude Code from Haskell.
+- [Skill and Agent Registry](cli/agents/skill-and-agent-registry.md) for the
+  shared `baikai-kit` lifecycle, provider-native assets, scope/visibility,
+  and session discovery. Its version boundary distinguishes published 0.3
+  from upstream's unreleased 0.4 visibility support.
+
+Use Baikai's provider launchers for subprocess construction; the assist
+pattern explains the three request surfaces and handling of render refusals.
 
 ## Inspecting trust and change history
 

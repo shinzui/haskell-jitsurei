@@ -2,7 +2,7 @@
 type: Overview
 title: "Haskell CLI patterns"
 description: "Interaction, configuration, help, completion, distribution, and coding-agent patterns for Haskell CLIs"
-timestamp: 2026-07-24T13:57:34Z
+timestamp: 2026-10-02T13:18:57Z
 generated:
   by: human:nadeem
   at: 2026-07-24T13:57:34Z
@@ -33,11 +33,15 @@ Choose the smallest patterns that match the command's interaction surface.
 - [Command Aliases](command-aliases.md)
 - [Command Aliases with KDL](command-aliases-kdl.md)
 - [Git SHA Version Output](version-with-git-sha.md)
-- [Hierarchical Dhall Config](hierarchical-config.md) — legacy only
+- [Settei CLI Configuration](mori://shinzui/keiro-runtime-patterns/docs/config-settei-cli-standard)
 
 ## Coding agents
 
 - [Agent Assist Commands](agents/agent-assist-commands.md)
 - [Per-Command Agent Configuration](agents/per-command-agent-config.md)
-- [Skill and Agent Registry](agents/skill-and-agent-registry.md)
-- [Claude CLI Subprocess Gotchas](agents/claude-cli-pitfalls.md)
+- [Skill and Agent Registry](agents/skill-and-agent-registry.md) — shared
+  `baikai-kit` installer and session discovery, including upstream 0.4 visibility
+
+The assist and configuration patterns delegate provider launch construction
+to Baikai. The obsolete standalone Claude subprocess workaround and layered
+Dhall configuration implementation have been removed.

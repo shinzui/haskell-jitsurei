@@ -1,5 +1,8 @@
 # Haskell Patterns Update Log
 
+## 2026-10-02
+* **Navigation**: getting-started routes new CLI configuration to `mori://shinzui/keiro-runtime-patterns/docs/config-settei-cli-standard` and kit distribution to the rewritten baikai-kit integration pattern; removed routes to obsolete Dhall and Claude subprocess documents
+
 ## 2026-09-19
 * **Migration**: Moved the bundle to OKF v0.2 and okf-profiles v0.18.0: added `generated` provenance from each document's timestamp and Git author, and normalized `timestamp` and review `document_timestamp` values to UTC without changing their instants
 

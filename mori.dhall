@@ -144,7 +144,7 @@ in  Schema.Project::{ project =
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
-            "Agent assist commands pattern for providing live project context to AI coding assistants"
+            "Assemble inspectable live project context and launch coding sessions through Baikai with provider-specific policy, render-refusal handling, and baikai-kit session discovery"
         , location =
             Schema.DocLocation.LocalFile
               "patterns/cli/agents/agent-assist-commands.md"
@@ -153,7 +153,7 @@ in  Schema.Project::{ project =
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
-            "Per-command agent configuration: resolve an AI agent's provider, model, and reasoning effort per subcommand through one hierarchical, provenance-tracked precedence chain (CLI flag > env > local per-command > local default > global per-command > global default > built-in), with a read-only `agent config` inspection command; a candidate-list resolver that makes each new dial additive; and how Baikai's provider-neutral ThinkingLevel plus its single effort/thinking fields absorb every per-vendor translation so a new knob costs an afternoon"
+            "Resolve provider, model, and reasoning effort per command with provenance; use Baikai smart constructors and its shared effort parser across interactive, response, and unattended request surfaces, preserve model-aware translation, and attach baikai-kit session discovery"
         , location =
             Schema.DocLocation.LocalFile
               "patterns/cli/agents/per-command-agent-config.md"
@@ -189,19 +189,10 @@ in  Schema.Project::{ project =
         , kind = Schema.DocKind.Cookbook
         , audience = Schema.DocAudience.User
         , description = Some
-            "Distributable skill and agent registry pattern for installing AI skills and subagents from a GitHub repository"
+            "Integrate baikai-kit through KitConfig, the shared command adapter, and session discovery; distinguish published 0.3 from unreleased 0.4 visibility support, and cover provider-native assets, scope, visibility, status conditions, local-edit protection, and JSON output"
         , location =
             Schema.DocLocation.LocalFile
               "patterns/cli/agents/skill-and-agent-registry.md"
-        }
-      , Schema.DocRef::{ key = "cli-hierarchical-config"
-        , kind = Schema.DocKind.Cookbook
-        , audience = Schema.DocAudience.User
-        , description = Some
-            "Hierarchical config pattern with layered Dhall files, precedence-based discovery, and per-layer validation"
-        , location =
-            Schema.DocLocation.LocalFile
-              "patterns/cli/hierarchical-config.md"
         }
       , Schema.DocRef::{ key = "cli-copy-to-clipboard"
         , kind = Schema.DocKind.Cookbook
@@ -219,15 +210,6 @@ in  Schema.Project::{ project =
             "Terminal-aware --width flag for help-topic output: ioctl-based auto-detect with a readability cap, byte-stable verbatim output when piped, indent-aware paragraph wrap, and parser-shape pitfalls that break the FZF picker path"
         , location =
             Schema.DocLocation.LocalFile "patterns/cli/help-width.md"
-        }
-      , Schema.DocRef::{ key = "cli-claude-cli-pitfalls"
-        , kind = Schema.DocKind.Cookbook
-        , audience = Schema.DocAudience.User
-        , description = Some
-            "Pitfalls when invoking the `claude` CLI as a subprocess from a Haskell CLI: the variadic --add-dir greedily eats the positional prompt without a `--` terminator (errors on short prompts, hangs on large ones); fix, stdin alternative, and a contract test to catch regressions"
-        , location =
-            Schema.DocLocation.LocalFile
-              "patterns/cli/agents/claude-cli-pitfalls.md"
         }
       , Schema.DocRef::{ key = "core-standards"
         , kind = Schema.DocKind.Cookbook

@@ -2,7 +2,7 @@
 type: Pattern
 title: "Per-Command Agent Configuration"
 description: "Resolve provider, model, and reasoning effort per subcommand through one provenance-tracked precedence chain"
-timestamp: 2026-07-20T19:23:48Z
+timestamp: 2026-10-02T13:18:57Z
 generated:
   by: human:nadeem
   at: 2026-07-20T19:23:48Z
@@ -13,9 +13,8 @@ status: current
 
 # Per-Command Agent Configuration (Provider, Model, Reasoning Effort)
 
-**Resolve an AI agent's provider, model, and reasoning effort *per subcommand*
-through one hierarchical, provenance-tracked precedence chain — and lean on
-[Baikai](mori://shinzui/baikai) so each new dial costs an afternoon, not a week.**
+**Resolve provider, model, and reasoning effort per command, retain their
+provenance, and apply them through [Baikai](mori://shinzui/baikai).**
 
 A CLI that launches AI agents (`mycli agent assist`, `mycli agent run`, …) usually
 starts with a single global provider/model pair. Sooner or later a user wants a
@@ -27,7 +26,12 @@ audit at a glance.
 It is written config-language-agnostic on purpose: the *keys* and the *resolution
 order* are the pattern; whether you store them in Dhall, KDL, TOML, or JSON is an
 implementation detail. The Haskell in the Baikai section is concrete because the
-time-saving is concrete.
+API wiring must match the consuming Baikai version. For new fleet CLIs, use
+the [Settei CLI standard](mori://shinzui/keiro-runtime-patterns/docs/config-settei-cli-standard)
+for loading and source diagnostics. The eight-tier chain below describes a
+tool that already exposes project/user defaults and parent/subcommand flags;
+retain that chain only when it is the tool's documented contract. Do not add a
+second file loader or silently replace Settei's source ordering to copy it.
 
 ## Problem
 
@@ -36,7 +40,8 @@ independent knobs want per-command control:
 
 - **provider** — which integration talks to the model (a local CLI such as
   `claude`/`codex`, or an HTTP API such as Anthropic's or OpenAI's).
-- **model** — the specific named model (`claude-opus-4-8`, `gpt-5-mini`).
+- **model** — a provider-compatible model identifier, checked against the current
+  [Baikai model catalog](mori://shinzui/baikai/docs/models-and-providers).
 - **reasoning effort** — how hard a reasoning-capable model deliberates before
   answering (a coarse dial from `minimal` to `max`).
 
@@ -252,10 +257,10 @@ model?"
 ```text
 $ mycli agent config
   run          provider  claude-cli       [built-in default]
-               model     claude-opus-4-8  [local: agent.run.model]
+               model     <claude-model>  [local: agent.run.model]
                effort    max              [local: agent.run.effort]
   assist       provider  codex-cli        [global: agent.assist.provider]
-               model     gpt-5-mini       [global: agent.assist.model]
+               model     <codex-model>       [global: agent.assist.model]
                effort    high             [global: agent.effort]
   …
 Precedence, highest first:
@@ -283,79 +288,97 @@ No new precedence rules, no new scopes, no re-plumbing. If your fields multiply,
 resolver, the inputs record, and the inspection command each grow by one parallel
 case — that regularity is the point.
 
-## Why Baikai Saves the Most Time
+## Apply resolved values through Baikai
 
-The resolver above is *config* plumbing. The part that would normally dwarf it — making
-provider, model, and especially effort actually *do* something across four different
-backends — is where [Baikai](mori://shinzui/baikai) collapses the work. Baikai is a
-unified Haskell interface over multiple AI providers; you resolve one neutral value and
-set one field, and Baikai owns every per-vendor translation.
+### Parse the shared effort vocabulary
 
-### One neutral vocabulary, not four
-
-Reasoning effort is exposed by every vendor differently: Claude's CLI takes
-`--effort low|…|max`, Codex takes `-c model_reasoning_effort=…`, Anthropic's API takes
-`thinking.budget_tokens` (a token count), OpenAI's takes `reasoning_effort`
-(an enum with a *different* set of names). Baikai gives you **one** provider-neutral
-type to configure against:
+Use the library parser instead of maintaining a second spelling table:
 
 ```haskell
--- Baikai.ThinkingLevel — six ordered buckets, provider-neutral.
-data ThinkingLevel
-  = ThinkingMinimal | ThinkingLow | ThinkingMedium
-  | ThinkingHigh    | ThinkingXHigh | ThinkingMax
+import Baikai.ThinkingLevel
+import Data.Text qualified as Text
 
-renderThinkingLevel :: ThinkingLevel -> Text   -- "minimal" … "max"
-thinkingTokenBudget :: ThinkingLevel -> Natural -- 1024 … 32768, for token APIs
+parseEffort :: Text.Text -> Maybe ThinkingLevel
+parseEffort = parseThinkingLevel . Text.toLower . Text.strip
 ```
 
-Your CLI only ever parses user text into a `ThinkingLevel`. You never learn — or track
-the drift of — any vendor's native spelling.
+The six levels are `minimal`, `low`, `medium`, `high`, `xhigh`, and
+`max`. Normalize at the application's input boundary; `parseThinkingLevel`
+itself accepts the canonical lowercase names. A nonblank invalid value is an
+error with provenance, rather than a reason to try a lower-priority source.
+If no value is configured, keep `Nothing`.
 
-### One field to set; Baikai does the four translations
+### Choose the correct request surface
 
-Both of Baikai's launch surfaces already carry the effort field. You set it once per
-path:
+Baikai has three distinct launch contracts:
+
+| Workflow | Request and effort field | Owner |
+|---|---|---|
+| Terminal session | `InteractiveLaunchRequest.effort` | `Baikai.Interactive` and vendor interactive launchers |
+| One returned response, over HTTP or a batch CLI | `Options.thinking` on a `Request` | Core API and provider packages |
+| Unattended workspace editing | `AgentRunRequest.effort` | `Baikai.Agent`, vendor command renderers, and `baikai-agent` runner |
+
+Build requests through smart constructors, then set the resolved values. The
+core request constructors are abstract in current Baikai; copying old record
+definitions into the application does not represent its API.
 
 ```haskell
--- Interactive (local CLI providers): Baikai.Interactive
-data InteractiveLaunchRequest = InteractiveLaunchRequest
-  { systemPrompt :: Maybe Text, userPrompt :: Text, modelId :: Maybe Text
-  , … , effort :: Maybe ThinkingLevel }      -- ← set this
+import Baikai.Agent qualified as Agent
+import Baikai.Interactive qualified as Interactive
+import Baikai.Options qualified as Options
 
--- One-shot (HTTP API providers): Baikai.Options
-data Options = Options { … , thinking :: Maybe ThinkingLevel }  -- ← and this
+setInteractiveEffort
+  :: Maybe ThinkingLevel
+  -> Interactive.InteractiveLaunchRequest
+  -> Interactive.InteractiveLaunchRequest
+setInteractiveEffort level request =
+  request { Interactive.effort = level }
+
+setResponseEffort :: Maybe ThinkingLevel -> Options.Options -> Options.Options
+setResponseEffort level options =
+  options { Options.thinking = level }
+
+setRunEffort
+  :: Maybe ThinkingLevel -> Agent.AgentRunRequest -> Agent.AgentRunRequest
+setRunEffort level request =
+  request { Agent.effort = level }
 ```
 
-Setting `effort = Just level` makes Baikai render `--effort max` onto Claude's argv;
-setting `thinking = Just level` makes it emit `thinking.budget_tokens` for Anthropic
-and `reasoning_effort` for OpenAI. When the value is `Nothing`, Baikai emits nothing
-and each backend uses its own default — so an unconfigured effort changes no argv and
-no request body. That "unset = unchanged" property is what lets you ship the feature
-without surprising existing users with new token spend.
+Use `interactiveLaunchRequest`, `emptyOptions`, and `agentRunRequest`
+as the starting values on those paths. Model configuration likewise belongs
+on the corresponding request, with a compatible provider selected by the
+application. HTTP response generation and workspace-editing runs do not share
+one process or policy contract.
 
-### The same leverage for provider and model
+### Translation is provider- and model-aware
 
-Provider/model already ride the same abstraction: you resolve a closed `AgentProvider`
-enum plus a model string, and Baikai dispatches to the right *transport* — spawning a
-local `claude`/`codex` subprocess for the CLI providers, or making an HTTP completion
-for the API providers — from one `Request`. Your dispatch branches on the provider
-enum; Baikai owns the wire format, the auth, the streaming, and the error model behind
-each branch.
+The library owns translation. Claude CLI maps `minimal` to `low`;
+Codex renders the canonical name through `model_reasoning_effort`.
+Anthropic Messages may use adaptive thinking or a token budget according to
+the model's compatibility facts. Native OpenAI paths preserve supported
+higher levels, while some compatible endpoints clamp them to `high`.
+Unsupported models can drop a requested setting. Do not promise that one
+level means the same token budget or wire field on every provider.
 
-### What you would otherwise hand-write and maintain
+`Nothing` expresses no application preference. On CLI launch paths it emits
+no effort override; on API paths consult the current model/transport
+compatibility rules. It is not an explicit provider `none` value.
+Use [model-call evidence](mori://shinzui/baikai/docs/model-call-evidence)
+when the workflow must record how a requested setting was translated,
+clamped, or dropped.
 
-| Without Baikai | With Baikai |
-|----------------|-------------|
-| An effort vocabulary per vendor, plus 4 translations (argv flag, `-c` setting, token budget, enum) | Parse text → `ThinkingLevel`; set one field |
-| Keep up with each vendor's flag/enum churn | Track one library version bound |
-| Separate subprocess-launch vs HTTP-request code paths, with their own error handling | One `Request`; branch only on provider |
-| Deciding token budgets for token-based APIs | `thinkingTokenBudget` gives sane defaults |
+### Attach kit assets after resolving configuration
 
-The result in practice: once provider/model resolution existed, wiring reasoning effort
-end-to-end (config keys, precedence, flag, env var, both launch paths, inspection row,
-tests) was a small, additive change — because the resolver was extensible and Baikai
-absorbed every provider-specific detail.
+Use one `KitConfig` for install and launch. Claude interactive requests get
+`agentDirsForSession` in `extraDirs`; Codex launches, including batch
+`codex exec`, need `codexSessionArgs` in their extra arguments to expose
+tool-only skills. Preserve existing arguments when appending. See
+[Skill and Agent Registry](skill-and-agent-registry.md) for the unreleased
+0.4 visibility API boundary and the complete adapter.
+
+Provider renderers can refuse an incompatible safety policy before spawn.
+Handle render refusal and preserve the selected policy. Keep safety and kit
+visibility separate from the provider/model/effort precedence chain.
 
 ## Design Decisions
 
@@ -367,7 +390,7 @@ absorbed every provider-specific detail.
 | Env vars stay cross-command (no `MYCLI_AGENT_RUN_MODEL`) | Env is already a coarse global override; ten per-command vars bloat the surface for little gain. Per-command control lives in config. |
 | Inspection is a *separate* read-only command, not folded into `config set` | The generic config editor is a raw key/value tool with no notion of agent resolution; the inspection view is a distinct, agent-specific *resolution* concern. |
 | Effort built-in default = unset (`Nothing`) | Effort is a cost/latency dial the user opts into; forcing a default risks surprise token spend. Contrast: if you need deterministic local-CLI runs, *pin* a model per provider so a session never inherits whatever model the ambient CLI has active. |
-| Reasoning effort expressed as Baikai's `ThinkingLevel`, applied to all providers | One neutral vocabulary; Baikai maps to each vendor's primitive. Wiring only interactive *or* only API would be a surprising half-feature. |
+| Reasoning effort expressed as Baikai's `ThinkingLevel`, wired into every supported request surface | One vocabulary with provider/model-aware translation; include interactive, response, and unattended paths the tool exposes. |
 | Watch out for separate command trees | A command like `prompt run` that lives outside the `agent` group has its own parser, dispatch arm, and handler — thread every new field through it explicitly, and test it, or it silently misses the feature. |
 
 ## When to Use
@@ -388,21 +411,15 @@ absorbed every provider-specific detail.
 - Your config has no scope hierarchy and no plan for one; the pattern's value is mostly
   in the local-over-global × per-command-over-default interaction.
 
-## Reference Implementation
+## References
 
-Seihou implements this pattern end-to-end. The two ExecPlans document the design
-decisions, the precedence rationale, and the milestone-by-milestone wiring:
+- [Baikai interactive launches](mori://shinzui/baikai/docs/interactive-launches)
+- [Baikai response providers](mori://shinzui/baikai/docs/cli-providers)
+- [Baikai unattended runs](mori://shinzui/baikai/docs/unattended-agent-runs)
+- [Baikai model-call evidence](mori://shinzui/baikai/docs/model-call-evidence)
+- [Settei CLI configuration](mori://shinzui/keiro-runtime-patterns/docs/config-settei-cli-standard)
 
-- **Provider + model** — `docs/plans/70-support-per-command-hierarchical-agent-model-and-provider-configuration.md`
-  (the resolver, provenance types, and `agent config` inspection command).
-- **Reasoning effort** — `docs/plans/72-configure-agent-reasoning-effort-per-command.md`
-  (the additive third field, and the Baikai 0.4 `effort`/`thinking` wiring).
-
-Baikai's neutral surface: [`mori://shinzui/baikai`](mori://shinzui/baikai) —
-`Baikai.ThinkingLevel`, `Baikai.Interactive.InteractiveLaunchRequest`, `Baikai.Options`.
-
-Related patterns in this collection:
-[cli-hierarchical-config](mori://shinzui/haskell-jitsurei/docs/cli-hierarchical-config)
-(the layered-config foundation this builds on) and
-[cli-agent-assist-commands](mori://shinzui/haskell-jitsurei/docs/cli-agent-assist-commands)
-(assembling the prompt these commands launch).
+Related catalog patterns:
+[Agent Assist Commands](agent-assist-commands.md) assembles the launch context;
+[Skill and Agent Registry](skill-and-agent-registry.md) supplies installed
+assets and session discovery.
