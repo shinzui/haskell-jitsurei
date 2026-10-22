@@ -1,5 +1,8 @@
 # api Update Log
 
+## 2026-10-22
+* **Correction**: servant-routes: the OverloadedRecordDot pitfall was wrong. HasField does see through (:-), and #label, selector application and dot syntax all typecheck on a generated client (GHC 9.12.4, servant 0.20.3.0, generic-lens 2.3.0.0). The section now keeps #label as the way to read route fields, and the Don't entry gives the real reason
+
 ## 2026-09-19
 * **Update**: Promoted Kubernetes Health Endpoints to an assessable standard (PAT-1) with four stable criteria drawn from its existing requirements
 

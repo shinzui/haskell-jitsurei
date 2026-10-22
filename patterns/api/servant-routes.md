@@ -2,7 +2,7 @@
 type: Standard
 title: "Servant API Design"
 description: "Organize Servant APIs as vertical NamedRoutes slices with typed MultiVerb responses"
-timestamp: 2026-07-24T17:28:01Z
+timestamp: 2026-10-22T03:23:33Z
 generated:
   by: human:nadeem
   at: 2026-07-24T17:28:01Z
@@ -267,21 +267,29 @@ If *every* route is authenticated, the combinator still goes on each field rathe
 than wrapping the record — wrapping it would be uniform but would also apply to any
 future public route added to the same record.
 
-### Pitfall: `OverloadedRecordDot` Does Not Work on Route Fields
+### Reading Route Fields on a Generated Client
 
-A `NamedRoutes` field's type is a `(:-)` **type-family application**, which
-record-dot's `HasField` cannot see through. Selector application does reduce it.
+A `NamedRoutes` field's type is a `(:-)` type-family application. Once the mode is
+concrete, or constrained as in `RunClient m => ServiceAPI (AsClientT m)`, it reduces
+like any other type family, and the client record reads like every other record in
+this catalogue: with `#label` (see [Record Patterns](../core/record-patterns.md)).
+Qualified selector application works too.
 
 ```haskell
--- WRONG: does not typecheck
-serviceClient.signup body
+-- CORRECT: the catalogue's field access
+(serviceClient ^. #signup) body
 
--- CORRECT: qualified selector application
+-- ALSO CORRECT: qualified selector application
 API.signup serviceClient body
 ```
 
-This is worth a comment at the call site; it looks like a record and reads like a
-record right up until you try dot syntax on it.
+An earlier revision of this document claimed that record-dot's `HasField` could not
+see through `(:-)`, so that `serviceClient.signup body` would not typecheck. That was
+wrong. Verified on 2026-10-21 with GHC 9.12.4, servant 0.20.3.0, servant-client
+0.20.3.0, generic-lens 2.3.0.0 and lens 5.3.6: labels, selectors and dot syntax all
+compile for `AsClientT ClientM`, `AsClientT IO` and a `RunClient m`-polymorphic
+record. `OverloadedRecordDot` stays off the recommended path for the reason that
+applies everywhere else in this catalogue, not because it fails here.
 
 ### Where `:<|>` Is Still Correct
 
@@ -719,7 +727,9 @@ HydrationDecodeFailed e -> ServiceInternal (ErrorEnvelopeWire "decode_failed" ms
 
 ### Don't Reach for `OverloadedRecordDot` on a Generated Client
 
-See the pitfall above. Use qualified selector application.
+It typechecks, but it is not how this catalogue reads records. Use `#label`, or
+qualified selector application, as described under
+[Reading Route Fields on a Generated Client](#reading-route-fields-on-a-generated-client).
 
 ## Related Patterns
 
